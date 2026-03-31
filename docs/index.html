@@ -3,11 +3,160 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Eigent - Know your agents.</title>
-<meta name="description" content="Open-source observability and compliance for AI agents. Discover what's running, capture what they do, prove they're governed.">
+
+<!-- Primary Meta Tags -->
+<title>Eigent - Open-Source AI Agent Security, Observability & Compliance</title>
+<meta name="description" content="Discover, observe, and govern every AI agent in your environment. Eigent provides open-source MCP server security scanning, shadow AI agent detection, and EU AI Act compliance for enterprises.">
+<meta name="keywords" content="AI agent security, MCP server security, shadow AI agents, AI observability, AI compliance, EU AI Act, AI governance, MCP scanning, agent trust, AI agent monitoring, open source AI security, SOC2 AI compliance">
+<meta name="author" content="Eigent">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://eigent.dev/">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://eigent.dev/">
+<meta property="og:title" content="Eigent - Open-Source AI Agent Security & Observability">
+<meta property="og:description" content="Discover, observe, and govern every AI agent in your environment. Open-source MCP server scanning, shadow agent detection, and compliance automation.">
+<meta property="og:image" content="https://eigent.dev/og-image.png">
+<meta property="og:site_name" content="Eigent">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://eigent.dev/">
+<meta name="twitter:title" content="Eigent - Open-Source AI Agent Security & Observability">
+<meta name="twitter:description" content="Discover, observe, and govern every AI agent in your environment. Open-source MCP server scanning, shadow agent detection, and compliance automation.">
+<meta name="twitter:image" content="https://eigent.dev/og-image.png">
+<meta name="twitter:site" content="@eigent_ai">
+
+<!-- Structured Data: SoftwareApplication -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Eigent",
+  "description": "Open-source observability and compliance platform for AI agents. Discover MCP servers, capture agent activity, and prove governance.",
+  "url": "https://eigent.dev",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Cross-platform",
+  "license": "https://opensource.org/licenses/Apache-2.0",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "softwareVersion": "0.1.0",
+  "downloadUrl": "https://github.com/anthropic/eigent",
+  "author": {
+    "@type": "Organization",
+    "name": "Eigent",
+    "url": "https://eigent.dev"
+  }
+}
+</script>
+
+<!-- Structured Data: Organization -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Eigent",
+  "url": "https://eigent.dev",
+  "logo": "https://eigent.dev/logo.png",
+  "description": "Trust infrastructure for autonomous AI agents.",
+  "sameAs": [
+    "https://github.com/anthropic/eigent",
+    "https://twitter.com/eigent_ai"
+  ],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "email": "hello@eigent.ai",
+    "contactType": "customer support"
+  }
+}
+</script>
+
+<!-- Structured Data: FAQPage -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is MCP server security?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MCP (Model Context Protocol) server security refers to the practice of discovering, auditing, and securing MCP servers that AI agents use to access tools, data, and external services. Without proper security, MCP servers can expose sensitive data, allow unauthorized tool execution, or create unmonitored shadow agent infrastructure. Eigent Scan automatically discovers all MCP servers in your environment and flags misconfigurations, missing authentication, and other security risks."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I detect shadow AI agents?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Shadow AI agents are autonomous agents running in your environment without IT or security team knowledge. Eigent detects them by scanning MCP configuration files across all known clients (Claude Desktop, Cursor, VS Code, etc.), monitoring running processes for stdio and SSE transports, and identifying unregistered MCP servers. Run 'eigent-scan scan --verbose' to get a complete inventory of every agent and MCP server in your environment."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Eigent free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, Eigent is completely free and open source under the Apache 2.0 license. Eigent Scan (discovery) and Eigent Sidecar (observability) are available today at no cost. The upcoming Eigent Platform (governance dashboard) will have both a free community tier and enterprise tiers for organizations that need advanced compliance features."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the EU AI Act and how does it affect AI agents?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The EU AI Act is the world's first comprehensive AI regulation, requiring organizations to maintain transparency, accountability, and risk management for AI systems. For autonomous AI agents, this means you need an inventory of all agents, audit trails of their actions, and proof of governance. Eigent helps you meet these requirements by automatically discovering agents, capturing complete audit logs via the Sidecar, and generating compliance reports aligned with EU AI Act, SOC2, and ISO 27001 frameworks."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Eigent compare to Astrix Security?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "While Astrix Security focuses on non-human identity management for API keys and service accounts, Eigent is purpose-built for AI agent trust infrastructure. Eigent specifically addresses MCP server discovery, agent-to-tool call tracing, delegation chain capture, and AI-specific compliance requirements. Eigent is also fully open source (Apache 2.0), giving you complete transparency and no vendor lock-in."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Eigent integrate with my SIEM?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Eigent Sidecar is OpenTelemetry native, meaning it exports traces and metrics in the standard OTLP format. You can route agent activity data to any SIEM or observability platform that supports OpenTelemetry, including Splunk, Datadog, Elastic, Grafana, and others. This lets you correlate AI agent behavior with your existing security monitoring without changing your toolchain."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I get started with Eigent Scan?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Getting started takes less than 60 seconds. Install with 'pip install eigent-scan', then run 'eigent-scan scan --verbose' to discover every MCP server in your environment. Eigent Scan checks Claude Desktop, Cursor, VS Code, and running processes automatically. No configuration needed. Use 'eigent-scan report --format html' to generate a shareable security report."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Eigent work with all AI agent frameworks?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Eigent works with any AI agent that uses the Model Context Protocol (MCP), which is the emerging standard for agent-tool communication. This includes agents built with Claude, GPT, and other LLMs that connect to MCP servers. The Sidecar intercepts MCP traffic at the transport layer (stdio and SSE), so it works regardless of which framework or LLM the agent uses."
+      }
+    }
+  ]
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Analytics: Add your Google Analytics or Plausible script here -->
+<!-- <script defer data-domain="eigent.dev" src="https://plausible.io/js/script.js"></script> -->
+<!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script> -->
+
 <style>
 /* ============================================================
    RESET & BASE
@@ -716,6 +865,216 @@ nav .container {
 }
 
 /* ============================================================
+   SOCIAL PROOF
+   ============================================================ */
+.social-proof {
+  border-top: 1px solid var(--border-subtle);
+  padding: 72px 0;
+}
+
+.social-proof-inner {
+  text-align: center;
+}
+
+.social-proof-heading {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 32px;
+}
+
+.proof-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+  flex-wrap: wrap;
+}
+
+.proof-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.proof-number {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.03em;
+}
+
+.proof-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   EMAIL CAPTURE / NOTIFY
+   ============================================================ */
+.notify {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.notify-inner {
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.notify-title {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+}
+
+.notify-desc {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  line-height: 1.7;
+}
+
+.notify-form {
+  display: flex;
+  gap: 8px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.notify-form input[type="email"] {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.notify-form input[type="email"]::placeholder {
+  color: var(--text-tertiary);
+}
+
+.notify-form input[type="email"]:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.notify-form button {
+  padding: 12px 24px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.notify-form button:hover {
+  background: #8b7af0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(124, 106, 239, 0.25);
+}
+
+.notify-privacy {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+}
+
+/* ============================================================
+   FAQ
+   ============================================================ */
+.faq {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.faq-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.faq-grid {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.faq-item {
+  background: var(--bg-card);
+}
+
+.faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+  line-height: 1.4;
+}
+
+.faq-question:hover {
+  background: var(--bg-elevated);
+}
+
+.faq-question .faq-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: transform 0.2s;
+}
+
+.faq-item.open .faq-icon {
+  transform: rotate(45deg);
+}
+
+.faq-answer {
+  display: none;
+  padding: 0 24px 20px;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.faq-item.open .faq-answer {
+  display: block;
+}
+
+/* ============================================================
    OPEN SOURCE
    ============================================================ */
 .opensource {
@@ -870,6 +1229,14 @@ footer .container {
     font-size: 0.6875rem;
     padding: 16px;
   }
+
+  .proof-stats {
+    gap: 32px;
+  }
+
+  .notify-form {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 480px) {
@@ -894,6 +1261,11 @@ footer .container {
   footer .container {
     flex-direction: column;
     text-align: center;
+  }
+
+  .proof-stats {
+    flex-direction: column;
+    gap: 24px;
   }
 }
 
@@ -939,6 +1311,7 @@ footer .container {
       <li><a href="#problem" class="hide-mobile">Problem</a></li>
       <li><a href="#features" class="hide-mobile">Features</a></li>
       <li><a href="#demo" class="hide-mobile">Demo</a></li>
+      <li><a href="#faq" class="hide-mobile">FAQ</a></li>
       <li><a href="https://github.com/anthropic/eigent" class="btn-sm">
         <svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub
@@ -963,7 +1336,63 @@ footer .container {
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         Get Started
       </a>
-      <a href="#features" class="btn btn-secondary">Read the Docs</a>
+      <a href="#demo" class="btn btn-secondary">See the Demo</a>
+    </div>
+  </div>
+</section>
+
+<!-- ========== TERMINAL DEMO (moved up for prominence) ========== -->
+<section class="demo" id="demo">
+  <div class="container">
+    <div class="demo-header">
+      <p class="section-label">See It In Action</p>
+      <h3 class="section-title">Find what's lurking in your environment.</h3>
+      <p class="section-desc centered">One command. Every agent. Every risk.</p>
+    </div>
+
+    <div class="terminal" style="position:relative;">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <span class="terminal-title">eigent-scan &mdash; zsh</span>
+      </div>
+      <div class="terminal-body">
+<div class="line prompt-line"><span class="prompt-char">$</span> <span class="cmd">eigent-scan scan --verbose</span></div>
+<div class="line blank"></div>
+<div class="line"><span class="accent bold">eigent-scan</span> <span class="dim">v0.1.0</span></div>
+<div class="line"><span class="dim">Scanning environment for MCP servers...</span></div>
+<div class="line blank"></div>
+<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Claude Desktop config</span> <span class="dim">~/.config/claude/claude_desktop_config.json</span></div>
+<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Cursor MCP config</span> <span class="dim">~/.cursor/mcp.json</span></div>
+<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">VS Code settings</span> <span class="dim">~/.vscode/settings.json</span></div>
+<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Running processes</span> <span class="dim">checking stdio/sse transports</span></div>
+<div class="line blank"></div>
+<div class="line"><span class="white bold">Found 7 MCP servers across 3 clients</span></div>
+<div class="line blank"></div>
+<div class="line"><span class="dim">  SERVER                              TRANSPORT   CLIENT           STATUS</span></div>
+<div class="line"><span class="dim">  ───────────────────────────────────────────────────────────────────────────</span></div>
+<div class="line">  <span class="white">@modelcontextprotocol/filesystem</span>    <span class="dim">stdio</span>       <span class="dim">Claude Desktop</span>   <span class="green">running</span></div>
+<div class="line">  <span class="white">@modelcontextprotocol/github</span>        <span class="dim">stdio</span>       <span class="dim">Claude Desktop</span>   <span class="green">running</span></div>
+<div class="line">  <span class="white">custom-rag-server</span>                   <span class="dim">sse</span>         <span class="dim">Cursor</span>           <span class="green">running</span></div>
+<div class="line">  <span class="white">@anthropic/code-index</span>               <span class="dim">stdio</span>       <span class="dim">Cursor</span>           <span class="green">running</span></div>
+<div class="line">  <span class="amber">internal-db-proxy</span>                   <span class="dim">sse</span>         <span class="dim">VS Code</span>          <span class="green">running</span></div>
+<div class="line">  <span class="red">unknown-mcp-bridge</span>                  <span class="dim">sse</span>         <span class="dim">unknown</span>          <span class="amber">unknown</span></div>
+<div class="line">  <span class="red">prod-admin-tools</span>                    <span class="dim">stdio</span>       <span class="dim">cron</span>             <span class="green">running</span></div>
+<div class="line blank"></div>
+<div class="line"><span class="red bold">RISK FINDINGS</span></div>
+<div class="line blank"></div>
+<div class="line">  <span class="red bold">CRITICAL</span>  <span class="white">prod-admin-tools</span> has unrestricted filesystem access to <span class="red">/</span></div>
+<div class="line">  <span class="red bold">CRITICAL</span>  <span class="white">unknown-mcp-bridge</span> is not registered in any known client config</div>
+<div class="line">  <span class="amber bold">HIGH</span>      <span class="white">internal-db-proxy</span> exposes <span class="amber">write_query</span> tool without auth</div>
+<div class="line">  <span class="amber bold">HIGH</span>      <span class="white">custom-rag-server</span> SSE endpoint has no TLS <span class="dim">(http://localhost:3001)</span></div>
+<div class="line">  <span class="accent bold">MEDIUM</span>    <span class="white">3 servers</span> have no telemetry configured</div>
+<div class="line blank"></div>
+<div class="line"><span class="dim">  2 critical &middot; 2 high &middot; 1 medium &middot; 2 servers clean</span></div>
+<div class="line blank"></div>
+<div class="line"><span class="white">Run </span><span class="accent">eigent-scan report --format html</span><span class="white"> for full details.</span></div>
+<div class="line prompt-line"><span class="prompt-char">$</span> <span class="cursor"></span></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1060,62 +1489,6 @@ footer .container {
   </div>
 </section>
 
-<!-- ========== TERMINAL DEMO ========== -->
-<section class="demo" id="demo">
-  <div class="container">
-    <div class="demo-header">
-      <p class="section-label">See It In Action</p>
-      <h3 class="section-title">Find what's lurking in your environment.</h3>
-      <p class="section-desc centered">One command. Every agent. Every risk.</p>
-    </div>
-
-    <div class="terminal" style="position:relative;">
-      <div class="terminal-bar">
-        <div class="terminal-dot r"></div>
-        <div class="terminal-dot y"></div>
-        <div class="terminal-dot g"></div>
-        <span class="terminal-title">eigent-scan &mdash; zsh</span>
-      </div>
-      <div class="terminal-body">
-<div class="line prompt-line"><span class="prompt-char">$</span> <span class="cmd">eigent-scan scan --verbose</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="accent bold">eigent-scan</span> <span class="dim">v0.1.0</span></div>
-<div class="line"><span class="dim">Scanning environment for MCP servers...</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Claude Desktop config</span> <span class="dim">~/.config/claude/claude_desktop_config.json</span></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Cursor MCP config</span> <span class="dim">~/.cursor/mcp.json</span></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">VS Code settings</span> <span class="dim">~/.vscode/settings.json</span></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Running processes</span> <span class="dim">checking stdio/sse transports</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="white bold">Found 7 MCP servers across 3 clients</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="dim">  SERVER                              TRANSPORT   CLIENT           STATUS</span></div>
-<div class="line"><span class="dim">  ───────────────────────────────────────────────────────────────────────────</span></div>
-<div class="line">  <span class="white">@modelcontextprotocol/filesystem</span>    <span class="dim">stdio</span>       <span class="dim">Claude Desktop</span>   <span class="green">running</span></div>
-<div class="line">  <span class="white">@modelcontextprotocol/github</span>        <span class="dim">stdio</span>       <span class="dim">Claude Desktop</span>   <span class="green">running</span></div>
-<div class="line">  <span class="white">custom-rag-server</span>                   <span class="dim">sse</span>         <span class="dim">Cursor</span>           <span class="green">running</span></div>
-<div class="line">  <span class="white">@anthropic/code-index</span>               <span class="dim">stdio</span>       <span class="dim">Cursor</span>           <span class="green">running</span></div>
-<div class="line">  <span class="amber">internal-db-proxy</span>                   <span class="dim">sse</span>         <span class="dim">VS Code</span>          <span class="green">running</span></div>
-<div class="line">  <span class="red">unknown-mcp-bridge</span>                  <span class="dim">sse</span>         <span class="dim">unknown</span>          <span class="amber">unknown</span></div>
-<div class="line">  <span class="red">prod-admin-tools</span>                    <span class="dim">stdio</span>       <span class="dim">cron</span>             <span class="green">running</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="red bold">RISK FINDINGS</span></div>
-<div class="line blank"></div>
-<div class="line">  <span class="red bold">CRITICAL</span>  <span class="white">prod-admin-tools</span> has unrestricted filesystem access to <span class="red">/</span></div>
-<div class="line">  <span class="red bold">CRITICAL</span>  <span class="white">unknown-mcp-bridge</span> is not registered in any known client config</div>
-<div class="line">  <span class="amber bold">HIGH</span>      <span class="white">internal-db-proxy</span> exposes <span class="amber">write_query</span> tool without auth</div>
-<div class="line">  <span class="amber bold">HIGH</span>      <span class="white">custom-rag-server</span> SSE endpoint has no TLS <span class="dim">(http://localhost:3001)</span></div>
-<div class="line">  <span class="accent bold">MEDIUM</span>    <span class="white">3 servers</span> have no telemetry configured</div>
-<div class="line blank"></div>
-<div class="line"><span class="dim">  2 critical &middot; 2 high &middot; 1 medium &middot; 2 servers clean</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="white">Run </span><span class="accent">eigent-scan report --format html</span><span class="white"> for full details.</span></div>
-<div class="line prompt-line"><span class="prompt-char">$</span> <span class="cursor"></span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ========== ARCHITECTURE ========== -->
 <section class="architecture" id="architecture">
   <div class="container">
@@ -1145,6 +1518,142 @@ footer .container {
         <div class="arch-module">Audit</div>
         <div class="arch-module">Compliance</div>
         <div class="arch-module">Cost</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SOCIAL PROOF ========== -->
+<section class="social-proof" id="social-proof">
+  <div class="container">
+    <div class="social-proof-inner">
+      <p class="social-proof-heading">Trusted by the community</p>
+      <div class="proof-stats">
+        <div class="proof-item">
+          <div class="proof-number">--</div>
+          <div class="proof-label">GitHub Stars</div>
+        </div>
+        <div class="proof-item">
+          <div class="proof-number">--</div>
+          <div class="proof-label">PyPI Downloads</div>
+        </div>
+        <div class="proof-item">
+          <div class="proof-number">--</div>
+          <div class="proof-label">Contributors</div>
+        </div>
+        <div class="proof-item">
+          <div class="proof-number">--</div>
+          <div class="proof-label">MCP Servers Scanned</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== EMAIL CAPTURE ========== -->
+<section class="notify" id="notify">
+  <div class="container">
+    <div class="notify-inner">
+      <p class="section-label">Stay Updated</p>
+      <h3 class="notify-title">Get notified when Eigent Platform launches</h3>
+      <p class="notify-desc">Be the first to know when the governance dashboard, compliance reports, and enterprise features go live. No spam, ever.</p>
+      <form class="notify-form" action="#" method="POST">
+        <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
+        <button type="submit">Notify Me</button>
+      </form>
+      <p class="notify-privacy">We respect your privacy. Unsubscribe at any time.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FAQ ========== -->
+<section class="faq" id="faq">
+  <div class="container">
+    <div class="faq-header">
+      <p class="section-label">FAQ</p>
+      <h3 class="section-title">Frequently asked questions</h3>
+      <p class="section-desc centered">Everything you need to know about AI agent security and Eigent.</p>
+    </div>
+
+    <div class="faq-grid">
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What is MCP server security?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          MCP (Model Context Protocol) server security refers to the practice of discovering, auditing, and securing MCP servers that AI agents use to access tools, data, and external services. Without proper security, MCP servers can expose sensitive data, allow unauthorized tool execution, or create unmonitored shadow agent infrastructure. Eigent Scan automatically discovers all MCP servers in your environment and flags misconfigurations, missing authentication, and other security risks.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          How do I detect shadow AI agents?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          Shadow AI agents are autonomous agents running in your environment without IT or security team knowledge. Eigent detects them by scanning MCP configuration files across all known clients (Claude Desktop, Cursor, VS Code, etc.), monitoring running processes for stdio and SSE transports, and identifying unregistered MCP servers. Run <code>eigent-scan scan --verbose</code> to get a complete inventory of every agent and MCP server in your environment.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Is Eigent free?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          Yes, Eigent is completely free and open source under the Apache 2.0 license. Eigent Scan (discovery) and Eigent Sidecar (observability) are available today at no cost. The upcoming Eigent Platform (governance dashboard) will have both a free community tier and enterprise tiers for organizations that need advanced compliance features.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What is the EU AI Act and how does it affect AI agents?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          The EU AI Act is the world's first comprehensive AI regulation, requiring organizations to maintain transparency, accountability, and risk management for AI systems. For autonomous AI agents, this means you need an inventory of all agents, audit trails of their actions, and proof of governance. Eigent helps you meet these requirements by automatically discovering agents, capturing complete audit logs via the Sidecar, and generating compliance reports aligned with EU AI Act, SOC2, and ISO 27001 frameworks.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          How does Eigent compare to Astrix Security?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          While Astrix Security focuses on non-human identity management for API keys and service accounts, Eigent is purpose-built for AI agent trust infrastructure. Eigent specifically addresses MCP server discovery, agent-to-tool call tracing, delegation chain capture, and AI-specific compliance requirements. Eigent is also fully open source (Apache 2.0), giving you complete transparency and no vendor lock-in.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Can Eigent integrate with my SIEM?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          Yes. Eigent Sidecar is OpenTelemetry native, meaning it exports traces and metrics in the standard OTLP format. You can route agent activity data to any SIEM or observability platform that supports OpenTelemetry, including Splunk, Datadog, Elastic, Grafana, and others. This lets you correlate AI agent behavior with your existing security monitoring without changing your toolchain.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          How do I get started with Eigent Scan?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          Getting started takes less than 60 seconds. Install with <code>pip install eigent-scan</code>, then run <code>eigent-scan scan --verbose</code> to discover every MCP server in your environment. Eigent Scan checks Claude Desktop, Cursor, VS Code, and running processes automatically. No configuration needed. Use <code>eigent-scan report --format html</code> to generate a shareable security report.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Does Eigent work with all AI agent frameworks?
+          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
+        </button>
+        <div class="faq-answer">
+          Eigent works with any AI agent that uses the Model Context Protocol (MCP), which is the emerging standard for agent-tool communication. This includes agents built with Claude, GPT, and other LLMs that connect to MCP servers. The Sidecar intercepts MCP traffic at the transport layer (stdio and SSE), so it works regardless of which framework or LLM the agent uses.
+        </div>
       </div>
     </div>
   </div>
@@ -1194,6 +1703,24 @@ footer .container {
     </div>
   </div>
 </footer>
+
+<!-- FAQ toggle script (minimal, non-render-blocking) -->
+<script>
+document.querySelectorAll('.faq-question').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var item = this.parentElement;
+    var isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function(el) {
+      el.classList.remove('open');
+      el.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+    });
+    if (!isOpen) {
+      item.classList.add('open');
+      this.setAttribute('aria-expanded', 'true');
+    }
+  });
+});
+</script>
 
 </body>
 </html>
