@@ -183,22 +183,79 @@ eigent-scan scan --verbose
 
 ## CI/CD integration
 
-Run in your CI pipeline to catch new agents before they reach production:
+[![Eigent Scan](https://img.shields.io/badge/eigent--scan-protected-blue?logo=githubactions)](https://github.com/saichandrasekhar/Eigent)
+
+### GitHub Action (recommended)
+
+Add the Eigent Scan action to your workflow. Findings automatically appear in the **Security** tab via SARIF upload.
 
 ```yaml
-# GitHub Actions
-- name: Scan for AI agents
-  run: |
-    pip install eigent-scan
-    eigent-scan scan --output json > eigent-results.json
-    # Fail if critical findings
-    python -c "
-    import json, sys
-    r = json.load(open('eigent-results.json'))
-    if r['summary']['critical_findings'] > 0:
-        print(f'FAILED: {r[\"summary\"][\"critical_findings\"]} critical findings')
-        sys.exit(1)
-    "
+name: MCP Security Scan
+on: [push, pull_request]
+
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for AI agents
+        uses: saichandrasekhar/Eigent/eigent-scan@main
+        with:
+          target: mcp           # mcp, process, or all
+          fail-on: high         # critical, high, medium, low, or none
+          upload-sarif: true    # Push results to GitHub Security tab
+```
+
+**Action inputs:**
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `target` | `mcp` | What to scan (`mcp`, `process`, `all`) |
+| `fail-on` | `critical` | Fail if findings at this severity or above (`critical`, `high`, `medium`, `low`, `none`) |
+| `output-format` | `table` | Console output format (`table`, `json`, `sarif`) |
+| `upload-sarif` | `true` | Upload SARIF to GitHub Security tab |
+
+**Action outputs:**
+
+| Output | Description |
+|--------|-------------|
+| `findings-count` | Total number of security findings |
+| `critical-count` | Number of critical findings |
+| `agents-count` | Number of AI agents discovered |
+| `sarif-file` | Path to the generated SARIF file |
+
+### CLI in any CI pipeline
+
+Use `--output sarif` and `--fail-on` for CI/CD integration with any platform:
+
+```bash
+# SARIF output for security tools
+eigent-scan scan --output sarif > results.sarif
+
+# Fail the build on high or critical findings
+eigent-scan scan --output sarif --fail-on high > results.sarif
+
+# JSON output with threshold gate
+eigent-scan scan --output json --fail-on critical > results.json
+```
+
+### GitLab CI / Jenkins / other
+
+```yaml
+# GitLab CI example
+security-scan:
+  stage: test
+  script:
+    - pip install eigent-scan
+    - eigent-scan scan --output sarif --fail-on high > gl-eigent-results.sarif
+  artifacts:
+    reports:
+      sast: gl-eigent-results.sarif
 ```
 
 ## Roadmap
@@ -208,7 +265,7 @@ Run in your CI pipeline to catch new agents before they reach production:
 - [ ] Azure scanner (OpenAI Service, Functions, Managed Identity)
 - [ ] GCP scanner (Vertex AI, Cloud Functions, IAM)
 - [ ] PDF report export
-- [ ] SARIF output (GitHub Security tab integration)
+- [x] SARIF output (GitHub Security tab integration)
 - [ ] Policy-as-code (define allowed agent configurations)
 - [ ] Continuous monitoring mode (watch for config changes)
 - [ ] SBOM generation for AI agents

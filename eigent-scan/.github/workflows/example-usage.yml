@@ -1,0 +1,27 @@
+name: MCP Security Scan
+
+on: [push, pull_request]
+
+permissions:
+  security-events: write  # Required for SARIF upload to Security tab
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan MCP servers
+        uses: ./eigent-scan
+        id: eigent
+        with:
+          fail-on: high
+          upload-sarif: true
+
+      - name: Print scan summary
+        if: always()
+        run: |
+          echo "Agents discovered: ${{ steps.eigent.outputs.agents-count }}"
+          echo "Total findings: ${{ steps.eigent.outputs.findings-count }}"
+          echo "Critical findings: ${{ steps.eigent.outputs.critical-count }}"

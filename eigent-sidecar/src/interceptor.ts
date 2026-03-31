@@ -37,6 +37,10 @@ export interface InterceptorOptions {
   agentId?: string;
   /** Print intercepted messages to stderr. */
   verbose: boolean;
+  /** Optional API key for the OTLP endpoint. */
+  otelApiKey?: string;
+  /** Whether to force TLS for the OTLP exporter. */
+  otelTls?: boolean;
 }
 
 // ── Interceptor ────────────────────────────────────────────────────────
@@ -47,16 +51,24 @@ export class McpInterceptor {
   private readonly options: InterceptorOptions;
 
   /** In-flight request spans keyed by JSON-RPC message id. */
-  private readonly pendingSpans = new Map<string | number, { span: Span; method: string }>();
+  private readonly pendingSpans = new Map<string | number, { span: Span; method: string; createdAt: number }>();
 
   /** Maps request IDs to their method names (so we know what a response is for). */
   private readonly requestMethods = new Map<string | number, string>();
+
+  /** Interval handle for the pending-span TTL reaper. */
+  private reaperInterval: ReturnType<typeof setInterval> | null = null;
+
+  /** Maximum age (ms) for a pending span before it is reaped with a timeout error. */
+  private static readonly SPAN_TTL_MS = 60_000;
 
   constructor(options: InterceptorOptions) {
     this.options = options;
     this.telemetry = new TelemetryManager({
       otelEndpoint: options.otelEndpoint,
       agentId: options.agentId,
+      otelApiKey: options.otelApiKey,
+      otelTls: options.otelTls,
     });
   }
 
@@ -84,6 +96,15 @@ export class McpInterceptor {
 
     if (!child.stdin || !child.stdout) {
       throw new Error("Failed to create stdio pipes for child process");
+    }
+
+    // Start the pending-span TTL reaper (every 10 seconds, reap spans older than 60s)
+    this.reaperInterval = setInterval(() => {
+      this.reapExpiredSpans();
+    }, 10_000);
+    // Do not let the reaper keep the process alive
+    if (this.reaperInterval && typeof this.reaperInterval === "object" && "unref" in this.reaperInterval) {
+      this.reaperInterval.unref();
     }
 
     // ── Intercept server → client (child stdout → parent stdout) ─────
@@ -164,6 +185,12 @@ export class McpInterceptor {
       });
     });
 
+    // Stop the reaper
+    if (this.reaperInterval) {
+      clearInterval(this.reaperInterval);
+      this.reaperInterval = null;
+    }
+
     // End any in-flight spans
     for (const [id, { span, method }] of this.pendingSpans) {
       this.telemetry.endSpan(span, {
@@ -186,6 +213,10 @@ export class McpInterceptor {
    * Gracefully stop the child process.
    */
   async stop(): Promise<void> {
+    if (this.reaperInterval) {
+      clearInterval(this.reaperInterval);
+      this.reaperInterval = null;
+    }
     if (this.child && !this.child.killed) {
       this.child.kill("SIGTERM");
 
@@ -205,6 +236,24 @@ export class McpInterceptor {
       });
     }
     await this.telemetry.shutdown();
+  }
+
+  /**
+   * Reap pending spans that have exceeded the TTL (60 seconds).
+   * Ends them with a timeout error and removes from the map.
+   */
+  private reapExpiredSpans(): void {
+    const now = Date.now();
+    for (const [id, entry] of this.pendingSpans) {
+      if (now - entry.createdAt > McpInterceptor.SPAN_TTL_MS) {
+        this.telemetry.endSpan(entry.span, {
+          code: -1,
+          message: `Span timed out after ${McpInterceptor.SPAN_TTL_MS}ms for ${entry.method} (id=${String(id)})`,
+        });
+        this.pendingSpans.delete(id);
+        this.requestMethods.delete(id);
+      }
+    }
   }
 
   // ── Message handlers ─────────────────────────────────────────────────
@@ -235,7 +284,7 @@ export class McpInterceptor {
         msg.id,
         attributes,
       );
-      this.pendingSpans.set(msg.id, { span, method: msg.method });
+      this.pendingSpans.set(msg.id, { span, method: msg.method, createdAt: Date.now() });
 
     } else if (isJsonRpcNotification(msg)) {
       // Notifications are fire-and-forget — record as a single-shot event
@@ -285,7 +334,7 @@ export class McpInterceptor {
         `server-request/${msg.method}`,
         msg.id,
       );
-      this.pendingSpans.set(msg.id, { span, method: msg.method });
+      this.pendingSpans.set(msg.id, { span, method: msg.method, createdAt: Date.now() });
 
     } else if (isJsonRpcNotification(msg)) {
       // Server-initiated notification (e.g., progress, log)

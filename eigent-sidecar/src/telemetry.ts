@@ -12,6 +12,7 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { Resource } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { randomUUID } from "node:crypto";
+import { basename } from "node:path";
 
 // ── MCP semantic convention attribute keys ─────────────────────────────
 // Following the draft OTel MCP semantic conventions from the sibling
@@ -24,9 +25,9 @@ export const MCP_ATTR = {
   SERVER_VERSION: "mcp.server.version",
   SESSION_ID:  "mcp.session.id",
   RESOURCE_URI: "mcp.resource.uri",
-  AGENT_ID:    "eigent.agent.id",
+  AGENT_ID:    "mcp.agent.id",
   MESSAGE_ID:  "mcp.message.id",
-  TRANSPORT:   "mcp.transport",
+  TRANSPORT:   "mcp.server.transport",
   ERROR_CODE:  "rpc.jsonrpc.error_code",
   ERROR_MESSAGE: "rpc.jsonrpc.error_message",
 } as const;
@@ -37,6 +38,10 @@ export interface TelemetryOptions {
   otelEndpoint: string;
   agentId?: string;
   serviceName?: string;
+  /** Optional API key sent as an x-api-key header to the OTLP endpoint. */
+  otelApiKey?: string;
+  /** Whether to use TLS (https) for the OTLP exporter. Default: auto-detect from endpoint URL. */
+  otelTls?: boolean;
 }
 
 export class TelemetryManager {
@@ -49,7 +54,7 @@ export class TelemetryManager {
   private shutdownCalled = false;
 
   constructor(options: TelemetryOptions) {
-    const { otelEndpoint, agentId, serviceName = "eigent-sidecar" } = options;
+    const { otelEndpoint, agentId, serviceName = "eigent-sidecar", otelApiKey, otelTls } = options;
     this.agentId = agentId;
     this.sessionId = randomUUID();
 
@@ -59,11 +64,27 @@ export class TelemetryManager {
       [ATTR_SERVICE_VERSION]: "0.1.0",
       [MCP_ATTR.SESSION_ID]: this.sessionId,
       ...(agentId ? { [MCP_ATTR.AGENT_ID]: agentId } : {}),
+      "process.pid": process.pid,
+      "process.parent_pid": process.ppid,
+      "process.executable.name": basename(process.execPath),
     });
+
+    // Build OTLP exporter URL — optionally upgrade to https
+    let endpointUrl = otelEndpoint.replace(/\/+$/, "");
+    if (otelTls === true && endpointUrl.startsWith("http://")) {
+      endpointUrl = endpointUrl.replace(/^http:\/\//, "https://");
+    }
+
+    // Optional headers (e.g., API key for authenticated collectors)
+    const headers: Record<string, string> = {};
+    if (otelApiKey) {
+      headers["x-api-key"] = otelApiKey;
+    }
 
     // OTLP/HTTP exporter — sends to /v1/traces by default
     const exporter = new OTLPTraceExporter({
-      url: `${otelEndpoint.replace(/\/+$/, "")}/v1/traces`,
+      url: `${endpointUrl}/v1/traces`,
+      headers,
     });
 
     // Provider + processor

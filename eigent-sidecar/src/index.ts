@@ -38,6 +38,15 @@ program
     "Agent identity to attach to all spans",
   )
   .option(
+    "--otel-api-key <key>",
+    "API key to send as x-api-key header to the OTLP endpoint",
+  )
+  .option(
+    "--otel-tls",
+    "Force TLS (https) for the OTLP exporter connection",
+    false,
+  )
+  .option(
     "--verbose",
     "Log intercepted messages to stderr",
     false,
@@ -46,6 +55,8 @@ program
   .action(async (command: string, args: string[], options: {
     otelEndpoint: string;
     agentId?: string;
+    otelApiKey?: string;
+    otelTls: boolean;
     verbose: boolean;
   }) => {
     const interceptor = new McpInterceptor({
@@ -53,6 +64,8 @@ program
       args,
       otelEndpoint: options.otelEndpoint,
       agentId: options.agentId,
+      otelApiKey: options.otelApiKey,
+      otelTls: options.otelTls,
       verbose: options.verbose,
     });
 

@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Scan {
+  id           String    @id @default(cuid())
+  timestamp    DateTime  @default(now())
+  targets      String    // JSON array of scan targets
+  totalAgents  Int       @default(0)
+  totalFindings Int      @default(0)
+  riskLevel    String    @default("unknown") // critical, high, medium, low, clean
+  raw          String    // Full scan result JSON
+  orgId        String?   // Organization identifier
+  agents       Agent[]
+  findings     Finding[]
+
+  @@index([timestamp])
+  @@index([orgId])
+}
+
+model Agent {
+  id         String   @id @default(cuid())
+  scanId     String
+  scan       Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  name       String
+  source     String   // mcp_config, claude_config, env_scan, etc.
+  transport  String   // stdio, sse, streamable-http, unknown
+  authStatus String   // none, api_key, oauth, unknown
+  configPath String?  // Path to config file where agent was found
+  command    String?  // Command used to start the agent
+  firstSeen  DateTime @default(now())
+  lastSeen   DateTime @default(now())
+
+  @@index([scanId])
+  @@index([name])
+  @@index([source])
+}
+
+model Finding {
+  id             String   @id @default(cuid())
+  scanId         String
+  scan           Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  agentName      String
+  severity       String   // critical, high, medium, low, info
+  title          String
+  description    String
+  recommendation String
+  category       String?  // auth, transport, shadow, permissions
+  createdAt      DateTime @default(now())
+
+  @@index([scanId])
+  @@index([severity])
+  @@index([agentName])
+}

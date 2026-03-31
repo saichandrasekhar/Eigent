@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from eigent_scan.diff import ScanDiff
 from eigent_scan.models import AuthStatus, ScanResult, Severity
 
 SEVERITY_COLORS = {
@@ -36,7 +37,11 @@ AUTH_DISPLAY = {
 }
 
 
-def render_table(result: ScanResult, console: Console | None = None) -> None:
+def render_table(
+    result: ScanResult,
+    console: Console | None = None,
+    diff: ScanDiff | None = None,
+) -> None:
     """Render the full scan report to the terminal."""
     if console is None:
         console = Console()
@@ -50,6 +55,9 @@ def render_table(result: ScanResult, console: Console | None = None) -> None:
     if result.findings:
         _render_findings(result, console)
         _render_recommendations(result, console)
+
+    if diff is not None and diff.has_changes:
+        render_diff(diff, console)
 
     _render_footer(result, console)
 
@@ -231,6 +239,121 @@ def _render_recommendations(result: ScanResult, console: Console) -> None:
         )
 
     console.print(table)
+
+
+def render_diff(diff: ScanDiff, console: Console | None = None) -> None:
+    """Render a Rich table showing what changed between two scans."""
+    if console is None:
+        console = Console()
+
+    if not diff.has_changes:
+        console.print("\n  [dim]No changes since last scan.[/dim]\n")
+        return
+
+    console.print()
+
+    # --- Summary line ---
+    parts: list[str] = []
+    if diff.new_agents:
+        parts.append(f"+{len(diff.new_agents)} agents")
+    if diff.removed_agents:
+        parts.append(f"-{len(diff.removed_agents)} agents")
+    if diff.changed_agents:
+        parts.append(f"~{len(diff.changed_agents)} changed")
+    if diff.new_findings:
+        parts.append(f"+{len(diff.new_findings)} findings")
+    if diff.resolved_findings:
+        parts.append(f"-{len(diff.resolved_findings)} findings")
+    if diff.risk_change and diff.risk_change[0] != diff.risk_change[1]:
+        old_risk, new_risk = diff.risk_change
+        old_style = SEVERITY_COLORS[old_risk]
+        new_style = SEVERITY_COLORS[new_risk]
+        parts.append(f"risk: {old_risk.value.upper()} -> {new_risk.value.upper()}")
+
+    summary_line = "Since last scan: " + ", ".join(parts)
+    console.print(Panel(summary_line, title="Diff Summary", border_style="cyan"))
+
+    # --- Detailed diff table ---
+    table = Table(
+        title="Changes Since Last Scan",
+        show_header=True,
+        header_style="bold",
+        border_style="cyan",
+        show_lines=True,
+    )
+    table.add_column("Change", width=10)
+    table.add_column("Type", width=10)
+    table.add_column("Name", style="bold")
+    table.add_column("Details", max_width=60)
+
+    for agent in diff.new_agents:
+        table.add_row(
+            Text("+", style="bold green"),
+            "Agent",
+            agent.name,
+            f"Source: {agent.source.value}, Auth: {agent.auth_status.value}",
+        )
+
+    for agent in diff.removed_agents:
+        table.add_row(
+            Text("-", style="bold red"),
+            "Agent",
+            agent.name,
+            f"Source: {agent.source.value}",
+        )
+
+    for ac in diff.changed_agents:
+        table.add_row(
+            Text("~", style="bold yellow"),
+            "Agent",
+            ac.agent_name,
+            "\n".join(ac.changes),
+        )
+
+    for finding in diff.new_findings:
+        style = SEVERITY_COLORS.get(finding.severity, "dim")
+        table.add_row(
+            Text("+", style="bold green"),
+            "Finding",
+            Text(finding.severity.value.upper(), style=style),
+            finding.title,
+        )
+
+    for finding in diff.resolved_findings:
+        table.add_row(
+            Text("-", style="bold red"),
+            "Finding",
+            Text(finding.severity.value.upper(), style="dim"),
+            finding.title,
+        )
+
+    if table.row_count > 0:
+        console.print(table)
+    console.print()
+
+
+def render_diff_summary_line(diff: ScanDiff, console: Console | None = None) -> None:
+    """Render a single-line diff summary at the end of a scan report."""
+    if console is None:
+        console = Console()
+
+    if not diff.has_changes:
+        return
+
+    parts: list[str] = []
+    if diff.new_agents:
+        parts.append(f"+{len(diff.new_agents)} agents")
+    if diff.removed_agents:
+        parts.append(f"-{len(diff.removed_agents)} agents")
+    if diff.new_findings:
+        parts.append(f"+{len(diff.new_findings)} findings")
+    if diff.resolved_findings:
+        parts.append(f"-{len(diff.resolved_findings)} findings")
+    if diff.risk_change and diff.risk_change[0] != diff.risk_change[1]:
+        old_risk, new_risk = diff.risk_change
+        parts.append(f"risk: {old_risk.value.upper()} -> {new_risk.value.upper()}")
+
+    console.print(f"  [cyan]Since last scan:[/cyan] {', '.join(parts)}")
 
 
 def _render_footer(result: ScanResult, console: Console) -> None:

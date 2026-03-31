@@ -120,8 +120,14 @@ export type MessageCallback = (
  * This ensures the sidecar never corrupts the byte stream between
  * MCP client and server, regardless of parsing success.
  */
+/** Maximum buffer size: 10 MB. Lines exceeding this are dropped. */
+const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+
 export class NdjsonInterceptor extends Transform {
-  private buffer = "";
+  /** Buffered chunks that have not yet been split on newline. */
+  private chunks: string[] = [];
+  /** Running byte-length of the buffered chunks. */
+  private bufferSize = 0;
   private readonly onMessage: MessageCallback;
 
   constructor(onMessage: MessageCallback) {
@@ -138,21 +144,66 @@ export class NdjsonInterceptor extends Transform {
     // Parse is side-effect only.
     this.push(chunk);
 
-    this.buffer += chunk.toString("utf-8");
+    const str = chunk.toString("utf-8");
+
+    // Check buffer size limit before accumulating
+    if (this.bufferSize + str.length > MAX_BUFFER_SIZE && !str.includes("\n")) {
+      // The accumulated buffer (including this chunk) exceeds 10MB with no
+      // newline to split on. Drop everything accumulated so far.
+      process.stderr.write(
+        `[eigent-sidecar] WARNING: dropping line exceeding ${MAX_BUFFER_SIZE} byte buffer limit\n`,
+      );
+      this.chunks.length = 0;
+      this.bufferSize = 0;
+      callback();
+      return;
+    }
+
+    this.chunks.push(str);
+    this.bufferSize += str.length;
+
+    // Only join and split when the incoming chunk contains a newline
+    if (!str.includes("\n")) {
+      callback();
+      return;
+    }
+
+    // Join all buffered chunks and split on newlines
+    let combined = this.chunks.join("");
+    this.chunks.length = 0;
+    this.bufferSize = 0;
 
     // Process all complete lines
     let newlineIdx: number;
-    while ((newlineIdx = this.buffer.indexOf("\n")) !== -1) {
-      const line = this.buffer.slice(0, newlineIdx);
-      this.buffer = this.buffer.slice(newlineIdx + 1);
+    while ((newlineIdx = combined.indexOf("\n")) !== -1) {
+      const line = combined.slice(0, newlineIdx);
+      combined = combined.slice(newlineIdx + 1);
 
-      const msg = parseLine(line);
-      if (msg !== null) {
-        try {
-          this.onMessage(msg, line);
-        } catch {
-          // Never let a callback error break the stream
+      if (line.length <= MAX_BUFFER_SIZE) {
+        const msg = parseLine(line);
+        if (msg !== null) {
+          try {
+            this.onMessage(msg, line);
+          } catch {
+            // Never let a callback error break the stream
+          }
         }
+      } else {
+        process.stderr.write(
+          `[eigent-sidecar] WARNING: dropping line exceeding ${MAX_BUFFER_SIZE} byte buffer limit\n`,
+        );
+      }
+    }
+
+    // Store remainder back
+    if (combined.length > 0) {
+      if (combined.length > MAX_BUFFER_SIZE) {
+        process.stderr.write(
+          `[eigent-sidecar] WARNING: dropping line exceeding ${MAX_BUFFER_SIZE} byte buffer limit\n`,
+        );
+      } else {
+        this.chunks.push(combined);
+        this.bufferSize = combined.length;
       }
     }
 
@@ -161,16 +212,25 @@ export class NdjsonInterceptor extends Transform {
 
   override _flush(callback: TransformCallback): void {
     // Handle any remaining data without a trailing newline
-    if (this.buffer.length > 0) {
-      const msg = parseLine(this.buffer);
-      if (msg !== null) {
-        try {
-          this.onMessage(msg, this.buffer);
-        } catch {
-          // swallow
+    if (this.chunks.length > 0) {
+      const remaining = this.chunks.join("");
+      this.chunks.length = 0;
+      this.bufferSize = 0;
+
+      if (remaining.length > MAX_BUFFER_SIZE) {
+        process.stderr.write(
+          `[eigent-sidecar] WARNING: dropping line exceeding ${MAX_BUFFER_SIZE} byte buffer limit\n`,
+        );
+      } else if (remaining.length > 0) {
+        const msg = parseLine(remaining);
+        if (msg !== null) {
+          try {
+            this.onMessage(msg, remaining);
+          } catch {
+            // swallow
+          }
         }
       }
-      this.buffer = "";
     }
     callback();
   }

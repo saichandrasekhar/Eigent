@@ -1,0 +1,117 @@
+name: 'Eigent Scan'
+description: 'Scan for AI agents and MCP servers. Discover shadow agents. Flag security risks.'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  target:
+    description: 'What to scan (mcp, process, all)'
+    required: false
+    default: 'mcp'
+  fail-on:
+    description: 'Fail the check if findings at this severity or above exist (critical, high, medium, low, none)'
+    required: false
+    default: 'critical'
+  output-format:
+    description: 'Output format (table, json, html, sarif)'
+    required: false
+    default: 'table'
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Security tab'
+    required: false
+    default: 'true'
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.12'
+
+outputs:
+  findings-count:
+    description: 'Total number of security findings'
+    value: ${{ steps.scan.outputs.findings-count }}
+  critical-count:
+    description: 'Number of critical findings'
+    value: ${{ steps.scan.outputs.critical-count }}
+  agents-count:
+    description: 'Number of AI agents discovered'
+    value: ${{ steps.scan.outputs.agents-count }}
+  sarif-file:
+    description: 'Path to the SARIF output file (if generated)'
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install eigent-scan
+      shell: bash
+      run: pip install eigent-scan
+
+    - name: Run Eigent Scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+
+        # Always produce SARIF for potential upload
+        SARIF_FILE="eigent-scan-results.sarif"
+        eigent-scan scan \
+          --target "${{ inputs.target }}" \
+          --output sarif \
+          --fail-on "${{ inputs.fail-on }}" \
+          > "$SARIF_FILE" 2> eigent-stderr.log
+        SCAN_EXIT=$?
+
+        # Extract summary counts from the SARIF file
+        if [ -f "$SARIF_FILE" ] && python3 -c "import json; json.load(open('$SARIF_FILE'))" 2>/dev/null; then
+          FINDINGS_COUNT=$(python3 -c "
+        import json
+        sarif = json.load(open('$SARIF_FILE'))
+        results = sarif.get('runs', [{}])[0].get('results', [])
+        print(len(results))
+        ")
+          CRITICAL_COUNT=$(python3 -c "
+        import json
+        sarif = json.load(open('$SARIF_FILE'))
+        results = sarif.get('runs', [{}])[0].get('results', [])
+        critical = [r for r in results if r.get('properties', {}).get('eigent-severity') == 'critical']
+        print(len(critical))
+        ")
+          AGENTS_COUNT=$(python3 -c "
+        import json
+        sarif = json.load(open('$SARIF_FILE'))
+        total = sarif.get('runs', [{}])[0].get('properties', {}).get('total_agents', 0)
+        print(total)
+        ")
+        else
+          FINDINGS_COUNT=0
+          CRITICAL_COUNT=0
+          AGENTS_COUNT=0
+        fi
+
+        echo "findings-count=$FINDINGS_COUNT" >> "$GITHUB_OUTPUT"
+        echo "critical-count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
+        echo "agents-count=$AGENTS_COUNT" >> "$GITHUB_OUTPUT"
+        echo "sarif-file=$SARIF_FILE" >> "$GITHUB_OUTPUT"
+
+        # Also print human-readable output to the log
+        if [ "${{ inputs.output-format }}" != "sarif" ]; then
+          eigent-scan scan \
+            --target "${{ inputs.target }}" \
+            --output "${{ inputs.output-format }}" || true
+        fi
+
+        exit $SCAN_EXIT
+
+    - name: Upload SARIF to GitHub Security tab
+      if: ${{ inputs.upload-sarif == 'true' && always() }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: eigent-scan-results.sarif
+        category: eigent-scan
+      continue-on-error: true
