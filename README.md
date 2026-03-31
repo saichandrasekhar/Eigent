@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo-placeholder.png" alt="Eigent Logo" width="200" />
+  <img src="docs/logo.svg" alt="Eigent Logo" width="280" />
   <br />
   <strong>E I G E N T</strong>
   <br />
