@@ -1,0 +1,21 @@
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.so
+.DS_Store
+
+# Private — never commit
+research/
+recruiting/
+pitch-deck.html
