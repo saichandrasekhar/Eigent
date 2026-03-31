@@ -1,4 +1,4 @@
-"""Rich terminal report generator for AgentVault scan results."""
+"""Rich terminal report generator for Eigent scan results."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from agentvault_scan.models import AuthStatus, ScanResult, Severity
+from eigent_scan.models import AuthStatus, ScanResult, Severity
 
 SEVERITY_COLORS = {
     Severity.CRITICAL: "bold red",
@@ -81,9 +81,9 @@ def render_json(result: ScanResult, console: Console | None = None) -> None:
 
 
 def _render_banner(console: Console) -> None:
-    """Render the AgentVault banner."""
+    """Render the Eigent banner."""
     banner = Text()
-    banner.append("\n  AgentVault Scan", style="bold white")
+    banner.append("\n  Eigent Scan", style="bold white")
     banner.append("  v0.1.0\n", style="dim")
     banner.append("  Discover AI agents. Expose security gaps.\n", style="italic dim")
 
@@ -251,14 +251,14 @@ def _render_footer(result: ScanResult, console: Console) -> None:
         console.print(Panel(
             "[bold]What's next?[/bold]\n\n"
             "  [dim]1.[/dim] Review findings above and address critical issues first\n"
-            "  [dim]2.[/dim] Export results:  [cyan]agentvault-scan scan --output json > results.json[/cyan]\n"
+            "  [dim]2.[/dim] Export results:  [cyan]eigent-scan scan --output json > results.json[/cyan]\n"
             "  [dim]3.[/dim] Track changes:   Re-run this scan regularly to detect drift\n"
-            "  [dim]4.[/dim] Full platform:   [blue]https://agentvault.dev[/blue] for continuous monitoring\n",
+            "  [dim]4.[/dim] Full platform:   [blue]https://eigent.dev[/blue] for continuous monitoring\n",
             title="Next Steps",
             border_style="blue",
         ))
 
     console.print(
-        "  [dim]agentvault-scan v0.1.0 | https://github.com/agentvault/agentvault-scan | Apache 2.0[/dim]"
+        "  [dim]eigent-scan v0.1.0 | https://github.com/saichandrasekhar/Eigent | Apache 2.0[/dim]"
     )
     console.print()

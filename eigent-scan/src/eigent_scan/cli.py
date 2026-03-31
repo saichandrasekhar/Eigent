@@ -1,4 +1,4 @@
-"""AgentVault Scan CLI — discover AI agents and their security gaps."""
+"""Eigent Scan CLI — discover AI agents and their security gaps."""
 
 from __future__ import annotations
 
@@ -7,25 +7,27 @@ import time
 import click
 from rich.console import Console
 
-from agentvault_scan import __version__
-from agentvault_scan.models import Agent, Finding, ScanResult
-from agentvault_scan.report import render_json, render_table
-from agentvault_scan.scanners import aws_scanner, mcp_scanner
+from eigent_scan import __version__
+from eigent_scan.models import Agent, Finding, ScanResult
+from eigent_scan.report import render_json, render_table
+from eigent_scan.scanners import aws_scanner, mcp_scanner, process_scanner
 
 console = Console()
 
 TARGETS = {
-    "mcp": ("MCP Servers", mcp_scanner.scan),
+    "mcp": ("MCP Servers (config)", mcp_scanner.scan),
     "aws": ("AWS Agents", aws_scanner.scan),
+    "process": ("Live MCP Processes", process_scanner.scan),
+    "live": ("Live MCP Processes", process_scanner.scan),
     # "azure": ("Azure Agents", azure_scanner.scan),  # Coming soon
     # "gcp": ("GCP Agents", gcp_scanner.scan),        # Coming soon
 }
 
 
 @click.group()
-@click.version_option(version=__version__, prog_name="agentvault-scan")
+@click.version_option(version=__version__, prog_name="eigent-scan")
 def cli():
-    """AgentVault Scan -- discover AI agents, their permissions, and security gaps.
+    """Eigent Scan -- discover AI agents, their permissions, and security gaps.
 
     Scans your local environment and cloud infrastructure to find AI agents,
     MCP servers, and LLM-powered services. Identifies authentication gaps,
@@ -38,7 +40,7 @@ def cli():
 @click.option(
     "--target",
     "-t",
-    type=click.Choice(["mcp", "aws", "azure", "gcp", "all"], case_sensitive=False),
+    type=click.Choice(["mcp", "aws", "process", "live", "azure", "gcp", "all"], case_sensitive=False),
     default="all",
     help="What to scan. Default: all available scanners.",
 )
@@ -65,11 +67,12 @@ def scan(target: str, output: str, verbose: bool):
     targets_scanned: list[str] = []
 
     # Determine which scanners to run
+    # "live" is an alias for "process" — exclude it from "all" to avoid duplicate runs
     if target == "all":
-        scan_targets = list(TARGETS.keys())
+        scan_targets = [t for t in TARGETS if t not in ("live", "process")]
     elif target in ("azure", "gcp"):
         console.print(f"\n  [yellow]{target.upper()} scanner coming soon.[/yellow]")
-        console.print("  Track progress: https://github.com/agentvault/agentvault-scan/issues\n")
+        console.print("  Track progress: https://github.com/saichandrasekhar/Eigent/issues\n")
         scan_targets = []
     else:
         scan_targets = [target]
@@ -112,7 +115,9 @@ def targets():
     console.print("\n[bold]Available scan targets:[/bold]\n")
 
     available = [
-        ("mcp", "MCP Servers", "Available", "green"),
+        ("mcp", "MCP Servers (config files)", "Available", "green"),
+        ("process", "Live MCP Processes (process table)", "Available", "green"),
+        ("live", "Alias for 'process'", "Available", "green"),
         ("aws", "AWS (Bedrock, Lambda, IAM)", "Coming soon", "yellow"),
         ("azure", "Azure (OpenAI Service, Functions)", "Coming soon", "yellow"),
         ("gcp", "GCP (Vertex AI, Cloud Functions)", "Coming soon", "yellow"),
@@ -138,7 +143,7 @@ def version():
     import platform
     import sys
 
-    console.print(f"\n  agentvault-scan {__version__}")
+    console.print(f"\n  eigent-scan {__version__}")
     console.print(f"  Python {sys.version.split()[0]}")
     console.print(f"  Platform: {platform.system()} {platform.release()}")
     console.print(f"  Architecture: {platform.machine()}")

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agentvault_scan.models import (
+from eigent_scan.models import (
     Agent,
     AgentSource,
     AuthStatus,
@@ -218,6 +218,6 @@ def scan(verbose: bool = False) -> tuple[list[Agent], list[Finding], list[str]]:
     logs.append("  - Step Functions orchestrating agent workflows")
     logs.append("")
     logs.append("  Prerequisites: boto3, valid AWS credentials")
-    logs.append("  Track progress: https://github.com/agentvault/agentvault-scan/issues/1")
+    logs.append("  Track progress: https://github.com/saichandrasekhar/Eigent/issues/1")
 
     return [], [], logs

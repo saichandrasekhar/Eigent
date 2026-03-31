@@ -1,10 +1,10 @@
 {
-  "name": "agentvault-sidecar",
+  "name": "eigent-sidecar",
   "version": "0.1.0",
   "description": "MCP stdio sidecar that captures agent telemetry as OpenTelemetry spans",
   "type": "module",
   "bin": {
-    "agentvault-sidecar": "./dist/index.js"
+    "eigent-sidecar": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

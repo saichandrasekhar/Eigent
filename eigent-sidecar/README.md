@@ -1,4 +1,4 @@
-# agentvault-sidecar
+# eigent-sidecar
 
 MCP stdio sidecar that intercepts JSON-RPC traffic between MCP clients and servers, producing OpenTelemetry spans for every operation.
 
@@ -7,14 +7,14 @@ Drop it in front of any MCP server command. The MCP client and server see no dif
 ## How it works
 
 ```
-                    agentvault-sidecar
-                  ┌─────────────────────┐
- MCP Client      │  stdin ──► parser ──►│──► MCP Server stdin
- (Claude, etc.)  │                      │
-                 │◄── parser ◄── stdout │◄── MCP Server stdout
-                  └────────┬────────────┘
-                           │
-                           ▼
+                    eigent-sidecar
+                  +-----------------------+
+ MCP Client      |  stdin --> parser -->  |--> MCP Server stdin
+ (Claude, etc.)  |                        |
+                 |<-- parser <-- stdout   |<-- MCP Server stdout
+                  +--------+--------------+
+                           |
+                           v
                     OTel Collector
                   (OTLP/HTTP spans)
 ```
@@ -30,7 +30,7 @@ The sidecar spawns the real MCP server as a child process, pipes stdin/stdout th
 ## Installation
 
 ```bash
-npm install -g agentvault-sidecar
+npm install -g eigent-sidecar
 ```
 
 Or install locally:
@@ -51,13 +51,13 @@ npx @modelcontextprotocol/server-filesystem /tmp
 Wrap it with the sidecar:
 
 ```bash
-agentvault-sidecar wrap -- npx @modelcontextprotocol/server-filesystem /tmp
+eigent-sidecar wrap -- npx @modelcontextprotocol/server-filesystem /tmp
 ```
 
 ### Options
 
 ```
-agentvault-sidecar wrap [options] <command> [args...]
+eigent-sidecar wrap [options] <command> [args...]
 
 Options:
   --otel-endpoint <url>   OTel collector endpoint (default: http://localhost:4318)
@@ -79,7 +79,7 @@ docker run -d --name jaeger \
 Then run:
 
 ```bash
-agentvault-sidecar wrap \
+eigent-sidecar wrap \
   --otel-endpoint http://localhost:4318 \
   --agent-id my-agent \
   --verbose \
@@ -111,7 +111,7 @@ In your Claude Desktop config (`claude_desktop_config.json`), replace the server
 {
   "mcpServers": {
     "filesystem": {
-      "command": "agentvault-sidecar",
+      "command": "eigent-sidecar",
       "args": [
         "wrap",
         "--otel-endpoint", "http://localhost:4318",
@@ -138,7 +138,7 @@ The sidecar attaches these attributes to spans, following the [OTel MCP semantic
 | `mcp.session.id` | Unique session ID for this sidecar instance |
 | `mcp.resource.uri` | Resource URI for `resources/read` requests |
 | `mcp.transport` | Always `stdio` |
-| `agentvault.agent.id` | Agent identity (from `--agent-id`) |
+| `eigent.agent.id` | Agent identity (from `--agent-id`) |
 | `rpc.jsonrpc.error_code` | JSON-RPC error code (on error) |
 | `rpc.jsonrpc.error_message` | JSON-RPC error message (on error) |
 

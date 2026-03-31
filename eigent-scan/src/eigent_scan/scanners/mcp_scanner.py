@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from agentvault_scan.models import (
+from eigent_scan.models import (
     Agent,
     AgentSource,
     AuthStatus,

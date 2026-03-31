@@ -1,4 +1,4 @@
-"""Data models for AgentVault scan results."""
+"""Data models for Eigent scan results."""
 
 from __future__ import annotations
 
@@ -51,6 +51,7 @@ class AgentSource(str, Enum):
     AWS_SAGEMAKER = "aws_sagemaker"
     AZURE_OPENAI = "azure_openai"
     GCP_VERTEX = "gcp_vertex"
+    LIVE_PROCESS = "live_process"
 
 
 class Agent(BaseModel):
@@ -82,7 +83,7 @@ class Finding(BaseModel):
 
 
 class ScanResult(BaseModel):
-    """Complete result of an AgentVault scan."""
+    """Complete result of an Eigent scan."""
 
     scan_id: str = Field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"))
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

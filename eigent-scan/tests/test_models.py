@@ -1,6 +1,6 @@
 """Tests for data models."""
 
-from agentvault_scan.models import (
+from eigent_scan.models import (
     Agent,
     AgentSource,
     AuthStatus,

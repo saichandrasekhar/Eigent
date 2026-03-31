@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from agentvault_scan.models import AuthStatus, Severity, TransportType
-from agentvault_scan.scanners.mcp_scanner import (
+from eigent_scan.models import AuthStatus, Severity, TransportType
+from eigent_scan.scanners.mcp_scanner import (
     _analyze_agent_risks,
     _detect_auth,
     _parse_mcp_servers,
@@ -261,7 +261,7 @@ class TestFullScan:
         }))
 
         # Patch home directory
-        with patch("agentvault_scan.scanners.mcp_scanner.Path.home", return_value=tmp_path):
+        with patch("eigent_scan.scanners.mcp_scanner.Path.home", return_value=tmp_path):
             agents, findings, logs = scan(verbose=True)
 
         assert len(agents) == 2

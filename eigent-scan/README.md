@@ -1,12 +1,12 @@
-# agentvault-scan
+# eigent-scan
 
 **Find every AI agent in your environment. Before attackers do.**
 
 <!-- Badges -->
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![PyPI](https://img.shields.io/pypi/v/agentvault-scan.svg)](https://pypi.org/project/agentvault-scan/)
-[![Downloads](https://img.shields.io/pypi/dm/agentvault-scan.svg)](https://pypi.org/project/agentvault-scan/)
+[![PyPI](https://img.shields.io/pypi/v/eigent-scan.svg)](https://pypi.org/project/eigent-scan/)
+[![Downloads](https://img.shields.io/pypi/dm/eigent-scan.svg)](https://pypi.org/project/eigent-scan/)
 
 ---
 
@@ -24,12 +24,12 @@ Most of these agents have **no authentication**, **broad permissions**, and **ze
 
 **You can't secure what you can't see.**
 
-## What agentvault-scan does
+## What eigent-scan does
 
 One command. Full visibility.
 
 ```bash
-agentvault-scan scan
+eigent-scan scan
 ```
 
 It discovers AI agents and MCP servers across your environment, analyzes their security posture, and tells you exactly what to fix.
@@ -57,38 +57,38 @@ It discovers AI agents and MCP servers across your environment, analyzes their s
 ### Install
 
 ```bash
-pip install agentvault-scan
+pip install eigent-scan
 ```
 
 Or run directly:
 
 ```bash
-pipx install agentvault-scan
+pipx install eigent-scan
 ```
 
 ### Scan
 
 ```bash
 # Scan everything
-agentvault-scan scan
+eigent-scan scan
 
 # Scan with details
-agentvault-scan scan --verbose
+eigent-scan scan --verbose
 
 # MCP servers only
-agentvault-scan scan --target mcp
+eigent-scan scan --target mcp
 
 # JSON output (pipe to jq, save to file, send to SIEM)
-agentvault-scan scan --output json > scan-results.json
+eigent-scan scan --output json > scan-results.json
 ```
 
 ### Develop
 
 ```bash
-git clone https://github.com/agentvault/agentvault-scan.git
-cd agentvault-scan
+git clone https://github.com/saichandrasekhar/Eigent.git
+cd Eigent/eigent-scan
 pip install -e ".[dev]"
-agentvault-scan scan --verbose
+eigent-scan scan --verbose
 ```
 
 ## Example output
@@ -96,7 +96,7 @@ agentvault-scan scan --verbose
 ```
   +------------------------------------------+
   |                                          |
-  |  AgentVault Scan  v0.1.0                 |
+  |  Eigent Scan  v0.1.0                     |
   |  Discover AI agents. Expose security     |
   |  gaps.                                   |
   |                                          |
@@ -158,16 +158,16 @@ agentvault-scan scan --verbose
   |                                             |
   |  1. Review findings and address critical    |
   |     issues first                            |
-  |  2. Export: agentvault-scan scan -o json    |
+  |  2. Export: eigent-scan scan -o json        |
   |  3. Re-run regularly to detect drift        |
-  |  4. Full platform: https://agentvault.dev   |
+  |  4. Full platform: https://eigent.dev       |
   |                                             |
   +---------------------------------------------+
 ```
 
 ## How it works
 
-`agentvault-scan` reads configuration files from well-known locations on your system. It does **not** execute any MCP servers, make network requests, or modify any files. It is a read-only, offline scanner.
+`eigent-scan` reads configuration files from well-known locations on your system. It does **not** execute any MCP servers, make network requests, or modify any files. It is a read-only, offline scanner.
 
 **MCP config locations scanned:**
 
@@ -189,12 +189,12 @@ Run in your CI pipeline to catch new agents before they reach production:
 # GitHub Actions
 - name: Scan for AI agents
   run: |
-    pip install agentvault-scan
-    agentvault-scan scan --output json > agentvault-results.json
+    pip install eigent-scan
+    eigent-scan scan --output json > eigent-results.json
     # Fail if critical findings
     python -c "
     import json, sys
-    r = json.load(open('agentvault-results.json'))
+    r = json.load(open('eigent-results.json'))
     if r['summary']['critical_findings'] > 0:
         print(f'FAILED: {r[\"summary\"][\"critical_findings\"]} critical findings')
         sys.exit(1)
@@ -213,11 +213,11 @@ Run in your CI pipeline to catch new agents before they reach production:
 - [ ] Continuous monitoring mode (watch for config changes)
 - [ ] SBOM generation for AI agents
 
-## AgentVault Platform
+## Eigent Platform
 
-`agentvault-scan` is the free, open-source scanner from **AgentVault** -- the agent trust infrastructure platform.
+`eigent-scan` is the free, open-source scanner from **Eigent** -- the agent trust infrastructure platform.
 
-Need more? [AgentVault](https://agentvault.dev) provides:
+Need more? [Eigent](https://eigent.dev) provides:
 
 - **Continuous monitoring** -- real-time alerts when new agents appear or configs change
 - **Policy enforcement** -- define and enforce what agents are allowed in your environment
@@ -230,8 +230,8 @@ Need more? [AgentVault](https://agentvault.dev) provides:
 We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
-git clone https://github.com/agentvault/agentvault-scan.git
-cd agentvault-scan
+git clone https://github.com/saichandrasekhar/Eigent.git
+cd Eigent/eigent-scan
 pip install -e ".[dev]"
 pytest
 ```
@@ -242,4 +242,4 @@ Apache 2.0. See [LICENSE](LICENSE).
 
 ---
 
-Built by [AgentVault](https://agentvault.dev). Because you can't secure what you can't see.
+Built by [Eigent](https://eigent.dev). Because you can't secure what you can't see.

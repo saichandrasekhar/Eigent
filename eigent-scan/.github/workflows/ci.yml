@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v --cov=agentvault_scan --cov-report=term-missing
-      - run: agentvault-scan scan --output json
+      - run: pytest tests/ -v --cov=eigent_scan --cov-report=term-missing
+      - run: eigent-scan scan --output json
 
   build:
     runs-on: ubuntu-latest

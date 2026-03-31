@@ -1,5 +1,5 @@
 /**
- * OpenTelemetry setup for the AgentVault sidecar.
+ * OpenTelemetry setup for the Eigent sidecar.
  *
  * Initialises a TracerProvider with an OTLP/HTTP exporter and exposes
  * helpers for creating MCP-attributed spans.
@@ -24,7 +24,7 @@ export const MCP_ATTR = {
   SERVER_VERSION: "mcp.server.version",
   SESSION_ID:  "mcp.session.id",
   RESOURCE_URI: "mcp.resource.uri",
-  AGENT_ID:    "agentvault.agent.id",
+  AGENT_ID:    "eigent.agent.id",
   MESSAGE_ID:  "mcp.message.id",
   TRANSPORT:   "mcp.transport",
   ERROR_CODE:  "rpc.jsonrpc.error_code",
@@ -49,7 +49,7 @@ export class TelemetryManager {
   private shutdownCalled = false;
 
   constructor(options: TelemetryOptions) {
-    const { otelEndpoint, agentId, serviceName = "agentvault-sidecar" } = options;
+    const { otelEndpoint, agentId, serviceName = "eigent-sidecar" } = options;
     this.agentId = agentId;
     this.sessionId = randomUUID();
 
@@ -77,7 +77,7 @@ export class TelemetryManager {
     );
     this.provider.register();
 
-    this.tracer = trace.getTracer("agentvault-sidecar", "0.1.0");
+    this.tracer = trace.getTracer("eigent-sidecar", "0.1.0");
   }
 
   /** Update server identity once we see an initialize response. */

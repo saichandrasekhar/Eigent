@@ -1,5 +1,5 @@
 /**
- * Core interception logic for the AgentVault sidecar.
+ * Core interception logic for the Eigent sidecar.
  *
  * Spawns the real MCP server as a child process, transparently proxies
  * stdio between the MCP client (parent) and MCP server (child), and
@@ -294,7 +294,7 @@ export class McpInterceptor {
   }
 
   private log(message: string): void {
-    process.stderr.write(`[agentvault-sidecar] ${message}\n`);
+    process.stderr.write(`[eigent-sidecar] ${message}\n`);
   }
 }
 
