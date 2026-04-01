@@ -30,6 +30,12 @@ export const MCP_ATTR = {
   TRANSPORT:   "mcp.server.transport",
   ERROR_CODE:  "rpc.jsonrpc.error_code",
   ERROR_MESSAGE: "rpc.jsonrpc.error_message",
+  // Eigent IAM enforcement attributes
+  EIGENT_DECISION:        "eigent.decision",
+  EIGENT_AGENT_ID:        "eigent.agent_id",
+  EIGENT_HUMAN_EMAIL:     "eigent.human_email",
+  EIGENT_DELEGATION_CHAIN: "eigent.delegation_chain",
+  EIGENT_DELEGATION_DEPTH: "eigent.delegation_depth",
 } as const;
 
 // ── Telemetry manager ──────────────────────────────────────────────────

@@ -6,13 +6,18 @@
  * Wraps any MCP server command, transparently proxies stdio, and exports
  * OpenTelemetry spans for every JSON-RPC message that passes through.
  *
+ * Optionally enforces IAM permissions by validating eigent tokens and
+ * blocking unauthorized tool calls.
+ *
  * Usage:
  *   eigent-sidecar wrap -- npx @modelcontextprotocol/server-filesystem /tmp
  *   eigent-sidecar wrap --otel-endpoint http://localhost:4318 -- node my-server.js
+ *   eigent-sidecar wrap --mode enforce --eigent-token <token> -- node my-server.js
  */
 
 import { Command } from "commander";
 import { McpInterceptor } from "./interceptor.js";
+import type { EnforcementMode } from "./enforcer.js";
 
 const program = new Command();
 
@@ -51,6 +56,19 @@ program
     "Log intercepted messages to stderr",
     false,
   )
+  .option(
+    "--mode <mode>",
+    "Enforcement mode: enforce, monitor, or permissive",
+    "monitor",
+  )
+  .option(
+    "--eigent-token <token>",
+    "Static eigent token for this agent",
+  )
+  .option(
+    "--registry-url <url>",
+    "Registry URL for token validation and JWKS",
+  )
   .allowUnknownOption(false)
   .action(async (command: string, args: string[], options: {
     otelEndpoint: string;
@@ -58,7 +76,20 @@ program
     otelApiKey?: string;
     otelTls: boolean;
     verbose: boolean;
+    mode: string;
+    eigentToken?: string;
+    registryUrl?: string;
   }) => {
+    // Validate mode
+    const validModes: EnforcementMode[] = ["enforce", "monitor", "permissive"];
+    const mode = options.mode as EnforcementMode;
+    if (!validModes.includes(mode)) {
+      process.stderr.write(
+        `[eigent-sidecar] Invalid mode '${options.mode}'. Must be one of: ${validModes.join(", ")}\n`,
+      );
+      process.exit(1);
+    }
+
     const interceptor = new McpInterceptor({
       command,
       args,
@@ -67,6 +98,9 @@ program
       otelApiKey: options.otelApiKey,
       otelTls: options.otelTls,
       verbose: options.verbose,
+      mode,
+      eigentToken: options.eigentToken,
+      registryUrl: options.registryUrl,
     });
 
     // ── Graceful shutdown ──────────────────────────────────────────

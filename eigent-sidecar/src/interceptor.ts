@@ -5,6 +5,9 @@
  * stdio between the MCP client (parent) and MCP server (child), and
  * creates OpenTelemetry spans for every JSON-RPC message that passes
  * through.
+ *
+ * Optionally enforces IAM permissions by validating eigent tokens and
+ * blocking unauthorized tool calls.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
@@ -14,6 +17,7 @@ import type { Span } from "@opentelemetry/api";
 import {
   NdjsonInterceptor,
   type JsonRpcMessage,
+  type HoldDecision,
   isJsonRpcRequest,
   isJsonRpcResponse,
   isJsonRpcNotification,
@@ -24,6 +28,8 @@ import {
 } from "./parser.js";
 
 import { TelemetryManager, MCP_ATTR } from "./telemetry.js";
+import { TokenValidator, type EigentClaims } from "./auth.js";
+import { PolicyEnforcer, type EnforcementMode } from "./enforcer.js";
 
 // ── Options ────────────────────────────────────────────────────────────
 
@@ -41,6 +47,12 @@ export interface InterceptorOptions {
   otelApiKey?: string;
   /** Whether to force TLS for the OTLP exporter. */
   otelTls?: boolean;
+  /** Enforcement mode: enforce, monitor, or permissive. Default: monitor. */
+  mode?: EnforcementMode;
+  /** Static eigent token for this agent. */
+  eigentToken?: string;
+  /** Registry URL for token validation and JWKS. */
+  registryUrl?: string;
 }
 
 // ── Interceptor ────────────────────────────────────────────────────────
@@ -49,6 +61,13 @@ export class McpInterceptor {
   private child: ChildProcess | null = null;
   private telemetry: TelemetryManager;
   private readonly options: InterceptorOptions;
+  private readonly validator: TokenValidator;
+  private readonly enforcer: PolicyEnforcer;
+  private readonly mode: EnforcementMode;
+
+  /** Cached parsed claims from the static eigent token. */
+  private cachedClaims: EigentClaims | null = null;
+  private claimsValidated = false;
 
   /** In-flight request spans keyed by JSON-RPC message id. */
   private readonly pendingSpans = new Map<string | number, { span: Span; method: string; createdAt: number }>();
@@ -64,12 +83,20 @@ export class McpInterceptor {
 
   constructor(options: InterceptorOptions) {
     this.options = options;
+    this.mode = options.mode ?? "monitor";
+
     this.telemetry = new TelemetryManager({
       otelEndpoint: options.otelEndpoint,
       agentId: options.agentId,
       otelApiKey: options.otelApiKey,
       otelTls: options.otelTls,
     });
+
+    this.validator = new TokenValidator({
+      registryUrl: options.registryUrl,
+    });
+
+    this.enforcer = new PolicyEnforcer(this.mode, this.validator);
   }
 
   /**
@@ -80,6 +107,9 @@ export class McpInterceptor {
     const { command, args, verbose } = this.options;
 
     this.log(`Spawning MCP server: ${command} ${args.join(" ")}`);
+    if (this.mode !== "permissive") {
+      this.log(`Enforcement mode: ${this.mode}`);
+    }
 
     // Spawn the real MCP server.
     // - stdin:  pipe (we feed it from our stdin)
@@ -119,15 +149,31 @@ export class McpInterceptor {
     );
 
     // ── Intercept client → server (parent stdin → child stdin) ───────
+    // In enforce mode, use hold mode so we can block unauthorized calls.
+    const useHoldMode = this.mode === "enforce";
 
-    const clientToServer = new NdjsonInterceptor(
-      (msg: JsonRpcMessage, raw: string) => {
-        if (verbose) {
-          this.log(`[client→server] ${raw.trim()}`);
-        }
-        this.handleClientMessage(msg);
-      },
-    );
+    let clientToServer: NdjsonInterceptor;
+
+    if (useHoldMode) {
+      clientToServer = new NdjsonInterceptor(
+        async (msg: JsonRpcMessage, raw: string): Promise<HoldDecision> => {
+          if (verbose) {
+            this.log(`[client→server] ${raw.trim()}`);
+          }
+          return this.handleClientMessageHold(msg);
+        },
+        { holdMode: true },
+      );
+    } else {
+      clientToServer = new NdjsonInterceptor(
+        (msg: JsonRpcMessage, raw: string) => {
+          if (verbose) {
+            this.log(`[client→server] ${raw.trim()}`);
+          }
+          this.handleClientMessage(msg);
+        },
+      );
+    }
 
     // ── Wire up the pipelines ────────────────────────────────────────
 
@@ -143,14 +189,60 @@ export class McpInterceptor {
       this.log(`Child stdout error: ${err.message}`);
     });
 
-    // Forward parent stdin → interceptor → child stdin
-    // Forward child stdout → interceptor → parent stdout
+    if (useHoldMode) {
+      // In enforce/hold mode, the client→server interceptor's output does NOT
+      // go to child.stdin. Instead, allowed messages go to child.stdin and
+      // denied messages need to go to parent stdout as error responses.
+      //
+      // We split the output: the NdjsonInterceptor in hold mode replaces denied
+      // messages with error responses. These error responses should go to parent
+      // stdout (not child stdin). But the pipeline architecture means everything
+      // from the interceptor goes to one destination.
+      //
+      // Solution: In hold mode, the interceptor:
+      // - For allowed messages: pushes original bytes (forwarded to child stdin)
+      // - For denied messages: pushes error response bytes
+      //
+      // We need to route denied messages to parent stdout instead. We handle this
+      // by writing denied error responses directly to process.stdout in
+      // handleClientMessageHold, and returning a "deny" decision that drops the
+      // original bytes (the hold mode NdjsonInterceptor pushes nothing for deny
+      // without errorResponse).
+      //
+      // Actually, the simpler approach: pipe interceptor output to child.stdin,
+      // and for denied messages, write the error response directly to stdout.
+      const stdinPipeline = pipeline(
+        process.stdin,
+        clientToServer,
+        child.stdin,
+      ).catch((err: NodeJS.ErrnoException) => {
+        if (err.code !== "EPIPE" && err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
+          this.log(`stdin pipeline error: ${err.message}`);
+        }
+      });
+
+      const stdoutPipeline = pipeline(
+        child.stdout,
+        serverToClient,
+        process.stdout,
+      ).catch((err: NodeJS.ErrnoException) => {
+        if (err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
+          this.log(`stdout pipeline error: ${err.message}`);
+        }
+      });
+
+      // ── Wait for child exit ──────────────────────────────────────────
+
+      const exitCode = await this.waitForChildExit(child, stdinPipeline, stdoutPipeline);
+      return exitCode;
+    }
+
+    // Non-hold mode (monitor/permissive): standard passthrough pipeline
     const stdinPipeline = pipeline(
       process.stdin,
       clientToServer,
       child.stdin,
     ).catch((err: NodeJS.ErrnoException) => {
-      // EPIPE / ERR_STREAM_PREMATURE_CLOSE are expected when child exits
       if (err.code !== "EPIPE" && err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
         this.log(`stdin pipeline error: ${err.message}`);
       }
@@ -166,8 +258,18 @@ export class McpInterceptor {
       }
     });
 
-    // ── Wait for child exit ──────────────────────────────────────────
+    const exitCode = await this.waitForChildExit(child, stdinPipeline, stdoutPipeline);
+    return exitCode;
+  }
 
+  /**
+   * Wait for the child process to exit and clean up.
+   */
+  private async waitForChildExit(
+    child: ChildProcess,
+    stdinPipeline: Promise<void>,
+    stdoutPipeline: Promise<void>,
+  ): Promise<number> {
     const exitCode = await new Promise<number>((resolve) => {
       child.on("exit", (code, signal) => {
         if (signal) {
@@ -200,7 +302,7 @@ export class McpInterceptor {
     }
     this.pendingSpans.clear();
 
-    // Wait for pipelines to finish (they should be done since child exited)
+    // Wait for pipelines to finish
     await Promise.allSettled([stdinPipeline, stdoutPipeline]);
 
     // Flush telemetry
@@ -256,11 +358,40 @@ export class McpInterceptor {
     }
   }
 
+  // ── Token resolution ────────────────────────────────────────────────
+
+  /**
+   * Get the eigent claims for the current agent.
+   * Uses the static token from CLI options or the EIGENT_TOKEN env var.
+   */
+  private async resolveEigentClaims(): Promise<EigentClaims | null> {
+    if (this.claimsValidated) return this.cachedClaims;
+
+    const token = this.options.eigentToken ?? process.env["EIGENT_TOKEN"];
+    if (!token) {
+      this.claimsValidated = true;
+      this.cachedClaims = null;
+      return null;
+    }
+
+    const result = await this.validator.validate(token);
+    this.claimsValidated = true;
+
+    if (result.valid) {
+      this.cachedClaims = result.claims;
+      return result.claims;
+    }
+
+    this.log(`Eigent token validation failed: ${result.reason ?? "unknown"}`);
+    this.cachedClaims = null;
+    return null;
+  }
+
   // ── Message handlers ─────────────────────────────────────────────────
 
   /**
    * Handle a message coming FROM the MCP client (going TO the server).
-   * These are requests and notifications.
+   * Passthrough mode — fire-and-forget (monitor/permissive).
    */
   private handleClientMessage(msg: JsonRpcMessage): void {
     if (isJsonRpcRequest(msg)) {
@@ -273,6 +404,29 @@ export class McpInterceptor {
       if (msg.method === "tools/call") {
         const toolName = extractToolName(msg);
         if (toolName) attributes[MCP_ATTR.TOOL_NAME] = toolName;
+
+        // In monitor/permissive mode, evaluate policy and add span attributes
+        // (async, fire-and-forget for telemetry only)
+        if (toolName) {
+          this.resolveEigentClaims().then((claims) => {
+            const decision = this.enforcer.evaluate(claims, msg.method, toolName);
+
+            // Add enforcement attributes to the span
+            const pending = this.pendingSpans.get(msg.id);
+            if (pending) {
+              pending.span.setAttribute(MCP_ATTR.EIGENT_DECISION, decision.action);
+              if (claims) {
+                this.setEigentSpanAttributes(pending.span, claims);
+              }
+            }
+
+            if (decision.action === "log_only") {
+              this.log(`[monitor] ${decision.reason}`);
+            }
+          }).catch(() => {
+            // Best effort
+          });
+        }
       } else if (msg.method === "resources/read") {
         const uri = extractResourceUri(msg);
         if (uri) attributes[MCP_ATTR.RESOURCE_URI] = uri;
@@ -290,6 +444,85 @@ export class McpInterceptor {
       // Notifications are fire-and-forget — record as a single-shot event
       this.telemetry.recordEvent(`notification/${msg.method}`);
     }
+  }
+
+  /**
+   * Handle a message coming FROM the MCP client (going TO the server).
+   * Hold mode — async, returns decision for the parser to act on (enforce mode).
+   */
+  private async handleClientMessageHold(msg: JsonRpcMessage): Promise<HoldDecision> {
+    if (isJsonRpcRequest(msg)) {
+      this.requestMethods.set(msg.id, msg.method);
+
+      const attributes: Record<string, string | number | undefined> = {};
+
+      if (msg.method === "tools/call") {
+        const toolName = extractToolName(msg);
+        if (toolName) attributes[MCP_ATTR.TOOL_NAME] = toolName;
+
+        if (toolName) {
+          const claims = await this.resolveEigentClaims();
+          const decision = this.enforcer.evaluate(claims, msg.method, toolName);
+
+          // Start span with enforcement attributes
+          attributes[MCP_ATTR.EIGENT_DECISION] = decision.action;
+          if (claims) {
+            attributes[MCP_ATTR.EIGENT_AGENT_ID] = claims.agent.name;
+            attributes[MCP_ATTR.EIGENT_HUMAN_EMAIL] = claims.human.email;
+            attributes[MCP_ATTR.EIGENT_DELEGATION_DEPTH] = claims.delegation.depth;
+            attributes[MCP_ATTR.EIGENT_DELEGATION_CHAIN] = claims.delegation.chain.join(" -> ");
+          }
+
+          if (decision.action === "deny") {
+            // Create and immediately end a span for the denied request
+            const span = this.telemetry.startRequestSpan(
+              msg.method,
+              msg.id,
+              attributes,
+            );
+            this.telemetry.endSpan(span, {
+              code: -32001,
+              message: `Eigent: permission denied. ${decision.reason}`,
+            });
+
+            this.log(`[enforce] DENIED: ${decision.reason}`);
+
+            // Synthesize JSON-RPC error and write directly to parent stdout
+            const errorResponse = JSON.stringify({
+              jsonrpc: "2.0",
+              id: msg.id,
+              error: {
+                code: -32001,
+                message: `Eigent: permission denied. ${decision.reason}`,
+              },
+            });
+
+            // Write error to parent stdout
+            process.stdout.write(errorResponse + "\n");
+
+            // Return deny with no errorResponse so the hold-mode parser drops the message
+            // (we already wrote the error to stdout ourselves)
+            return { action: "deny" };
+          }
+        }
+      } else if (msg.method === "resources/read") {
+        const uri = extractResourceUri(msg);
+        if (uri) attributes[MCP_ATTR.RESOURCE_URI] = uri;
+      }
+
+      // Start a span that we will end when the response comes back
+      const span = this.telemetry.startRequestSpan(
+        msg.method,
+        msg.id,
+        attributes,
+      );
+      this.pendingSpans.set(msg.id, { span, method: msg.method, createdAt: Date.now() });
+
+    } else if (isJsonRpcNotification(msg)) {
+      this.telemetry.recordEvent(`notification/${msg.method}`);
+    }
+
+    return { action: "allow" };
   }
 
   /**
@@ -340,6 +573,16 @@ export class McpInterceptor {
       // Server-initiated notification (e.g., progress, log)
       this.telemetry.recordEvent(`server-notification/${msg.method}`);
     }
+  }
+
+  /**
+   * Set eigent-specific span attributes from claims.
+   */
+  private setEigentSpanAttributes(span: Span, claims: EigentClaims): void {
+    span.setAttribute(MCP_ATTR.EIGENT_AGENT_ID, claims.agent.name);
+    span.setAttribute(MCP_ATTR.EIGENT_HUMAN_EMAIL, claims.human.email);
+    span.setAttribute(MCP_ATTR.EIGENT_DELEGATION_DEPTH, claims.delegation.depth);
+    span.setAttribute(MCP_ATTR.EIGENT_DELEGATION_CHAIN, claims.delegation.chain.join(" -> "));
   }
 
   private log(message: string): void {
