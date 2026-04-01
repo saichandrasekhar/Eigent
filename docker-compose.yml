@@ -1,0 +1,29 @@
+services:
+  registry:
+    build: ./eigent-registry
+    ports: ["3456:3456"]
+    environment:
+      - EIGENT_MASTER_KEY=${EIGENT_MASTER_KEY:-dev-master-key-change-in-production}
+      - DATABASE_URL=sqlite:///data/eigent.db
+    volumes:
+      - registry-data:/data
+
+  sidecar:
+    build: ./eigent-sidecar
+    depends_on: [registry]
+    environment:
+      - EIGENT_REGISTRY_URL=http://registry:3456
+
+  dashboard:
+    build: ./eigent-dashboard
+    ports: ["3000:3000"]
+    depends_on: [registry]
+    environment:
+      - EIGENT_REGISTRY_URL=http://registry:3456
+
+  demo-mcp-server:
+    build: ./demo
+    depends_on: [registry]
+
+volumes:
+  registry-data:

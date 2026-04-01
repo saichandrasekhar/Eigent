@@ -1,0 +1,26 @@
+{
+  "name": "eigent-scan",
+  "version": "0.1.0",
+  "description": "Discover AI agents, their permissions, and security gaps across your environment (npx wrapper)",
+  "license": "Apache-2.0",
+  "bin": {
+    "eigent-scan": "./index.js"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "security",
+    "scanner",
+    "mcp",
+    "llm",
+    "devops"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saichandrasekhar/Eigent"
+  },
+  "homepage": "https://docs.eigent.dev",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
