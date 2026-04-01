@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { useState } from "react";
 
 const links = [
   { href: "/", label: "Dashboard", icon: GridIcon },
@@ -60,8 +62,9 @@ export function Nav() {
         <div className="ml-auto flex items-center gap-3">
           <RegistryStatus />
           <span className="text-text-muted text-[0.65rem] font-mono bg-bg-card px-2.5 py-1 rounded-md border border-border">
-            v0.2.0
+            v0.3.0
           </span>
+          <UserMenu />
         </div>
       </div>
     </nav>
@@ -73,6 +76,70 @@ function RegistryStatus() {
     <div className="flex items-center gap-1.5 text-[0.65rem] font-mono text-text-muted bg-bg-card px-2.5 py-1 rounded-md border border-border">
       <span className="w-1.5 h-1.5 rounded-full bg-status-pass animate-pulse" />
       Registry
+    </div>
+  );
+}
+
+const roleBadgeColors: Record<string, string> = {
+  admin: "bg-severity-critical/10 text-severity-critical",
+  operator: "bg-accent/10 text-accent",
+  viewer: "bg-status-pass/10 text-status-pass",
+};
+
+function UserMenu() {
+  const { data: session } = useSession();
+  const [open, setOpen] = useState(false);
+
+  if (!session?.user) {
+    return null;
+  }
+
+  const role = (session.user as Record<string, unknown>).role as string ?? "viewer";
+  const badgeColor = roleBadgeColors[role] ?? roleBadgeColors.viewer;
+  const initials = (session.user.name ?? session.user.email ?? "?")
+    .split(/[\s@]/)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 bg-bg-card border border-border rounded-lg px-2.5 py-1 hover:border-accent/40 transition-colors"
+      >
+        <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center">
+          <span className="text-accent text-[0.5rem] font-mono font-bold">{initials}</span>
+        </div>
+        <span className="text-text-secondary text-[0.65rem] font-mono max-w-[120px] truncate">
+          {session.user.email}
+        </span>
+        <span className={`text-[0.55rem] font-mono px-1.5 py-0.5 rounded-full ${badgeColor}`}>
+          {role}
+        </span>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+            <div className="px-3 py-2 border-b border-border">
+              <p className="text-text-primary text-xs font-display font-semibold truncate">
+                {session.user.name}
+              </p>
+              <p className="text-text-muted text-[0.6rem] font-mono truncate">
+                {session.user.email}
+              </p>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="w-full text-left px-3 py-2 text-xs font-display text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

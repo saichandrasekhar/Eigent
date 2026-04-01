@@ -36,6 +36,7 @@ interface AgentDetailProps {
   agent: AgentDetailData;
   onClose: () => void;
   onRevoke?: (agentId: string) => void;
+  userRole?: "admin" | "operator" | "viewer";
 }
 
 const statusStyles: Record<string, { bg: string; text: string; dot: string }> = {
@@ -44,7 +45,8 @@ const statusStyles: Record<string, { bg: string; text: string; dot: string }> = 
   expired: { bg: "bg-status-partial/10", text: "text-status-partial", dot: "bg-status-partial" },
 };
 
-export function AgentDetail({ agent, onClose, onRevoke }: AgentDetailProps) {
+export function AgentDetail({ agent, onClose, onRevoke, userRole = "viewer" }: AgentDetailProps) {
+  const canRevoke = userRole === "admin" || userRole === "operator";
   const [revoking, setRevoking] = useState(false);
   const isExpired = new Date(agent.expires_at) < new Date();
   const effectiveStatus = agent.status === "revoked" ? "revoked" : isExpired ? "expired" : "active";
@@ -206,7 +208,7 @@ export function AgentDetail({ agent, onClose, onRevoke }: AgentDetailProps) {
 
           {/* Actions */}
           <div className="pt-2 border-t border-border flex gap-3">
-            {effectiveStatus === "active" && onRevoke && (
+            {effectiveStatus === "active" && onRevoke && canRevoke && (
               <button
                 onClick={handleRevoke}
                 disabled={revoking}

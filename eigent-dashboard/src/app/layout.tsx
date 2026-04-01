@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Nav } from "@/components/nav";
+import { SessionProvider } from "@/components/session-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,10 +22,12 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-bg-primary text-text-primary antialiased min-h-screen">
-        <Nav />
-        <main className="pt-14">
-          {children}
-        </main>
+        <SessionProvider>
+          <Nav />
+          <main className="pt-14">
+            {children}
+          </main>
+        </SessionProvider>
       </body>
     </html>
   );
