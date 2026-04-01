@@ -1,0 +1,118 @@
+site_name: Eigent
+site_url: https://eigent.dev
+site_description: "OAuth for AI Agents — cryptographic identity, delegation chains, and permission governance for autonomous AI"
+repo_url: https://github.com/saichandrasekhar/Eigent
+repo_name: saichandrasekhar/Eigent
+edit_uri: edit/main/mkdocs-docs/
+docs_dir: mkdocs-docs
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: DM Sans
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/shield-lock
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+    - Installation: getting-started/installation.md
+    - Your First Eigent: getting-started/first-eigent.md
+  - Concepts:
+    - Overview: concepts/overview.md
+    - Eigent Tokens: concepts/tokens.md
+    - Delegation Chains: concepts/delegation.md
+    - Permission Model: concepts/permissions.md
+    - Cascade Revocation: concepts/revocation.md
+    - Audit Trail: concepts/audit.md
+  - Guides:
+    - MCP Server Integration: guides/mcp-integration.md
+    - Claude Desktop Setup: guides/claude-desktop.md
+    - CI/CD Pipeline: guides/cicd.md
+    - SIEM Integration: guides/siem.md
+    - Multi-Agent Workflows: guides/multi-agent.md
+  - Compliance:
+    - EU AI Act: compliance/eu-ai-act.md
+    - SOC 2: compliance/soc2.md
+    - Compliance Reports: compliance/reports.md
+  - API Reference:
+    - Registry API: api/registry.md
+    - CLI Reference: api/cli.md
+    - Core Library: api/core.md
+    - Sidecar: api/sidecar.md
+  - Architecture:
+    - System Design: architecture/system-design.md
+    - Security Model: architecture/security.md
+    - Protocol: architecture/protocol.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - social
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/saichandrasekhar/Eigent
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/eigent_dev
+  generator: false
+
+copyright: Copyright &copy; 2026 Eigent — Apache 2.0
