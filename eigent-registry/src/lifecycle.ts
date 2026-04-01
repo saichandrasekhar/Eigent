@@ -6,6 +6,7 @@ import {
   insertAuditLog,
 } from './db.js';
 import { issueToken, type EigentTokenPayload } from './tokens.js';
+import { fireWebhooks } from './webhooks.js';
 
 // ─── Configuration ───
 
@@ -97,6 +98,7 @@ export async function rotateToken(agentId: string): Promise<RotationResult> {
   // Audit log
   insertAuditLog({
     id: auditId(),
+    org_id: agent.org_id,
     timestamp: now.toISOString(),
     agent_id: agentId,
     human_email: agent.human_email,
@@ -149,6 +151,7 @@ export function runAutoExpiry(): ExpiryResult {
 
         insertAuditLog({
           id: auditId(),
+          org_id: agent.org_id,
           timestamp: now,
           agent_id: agent.id,
           human_email: agent.human_email,
@@ -168,6 +171,7 @@ export function runAutoExpiry(): ExpiryResult {
 
             insertAuditLog({
               id: auditId(),
+              org_id: child?.org_id ?? agent.org_id,
               timestamp: now,
               agent_id: childId,
               human_email: child?.human_email ?? agent.human_email,
@@ -264,6 +268,7 @@ export function markStaleAgents(thresholdMinutes?: number): string[] {
 
         insertAuditLog({
           id: auditId(),
+          org_id: agent.org_id,
           timestamp: now,
           agent_id: agent.id,
           human_email: agent.human_email,
@@ -344,6 +349,7 @@ export function deprovisionAgent(agentId: string): DeprovisionResult {
   // Audit log
   insertAuditLog({
     id: auditId(),
+    org_id: agent.org_id,
     timestamp: now,
     agent_id: agentId,
     human_email: agent.human_email,
@@ -412,6 +418,7 @@ export function deprovisionHuman(email: string): HumanDeprovisionResult {
   // Single audit log entry for the human deprovisioning
   insertAuditLog({
     id: auditId(),
+    org_id: agents[0]?.org_id ?? 'default',
     timestamp: now,
     agent_id: agentIds[0], // primary reference
     human_email: email,
@@ -423,6 +430,14 @@ export function deprovisionHuman(email: string): HumanDeprovisionResult {
       agent_ids: agentIds,
       agent_names: agentNames,
     }),
+  });
+
+  // Fire webhook for human.deprovisioned
+  const orgId = agents[0]?.org_id ?? 'default';
+  fireWebhooks(orgId, 'human.deprovisioned', {
+    human_email: email,
+    agents_affected: agents.length,
+    agent_ids: agentIds,
   });
 
   return {

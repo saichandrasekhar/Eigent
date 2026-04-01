@@ -592,6 +592,17 @@ export function generateComplianceReport(options: ReportOptions): string {
   );
   const blockedLogs = auditLogs.filter((l) => l.action === 'tool_call_blocked');
 
+  // Risk classification breakdown (EU AI Act Art. 6)
+  const riskBreakdown = {
+    unacceptable: agents.filter((a) => (a as AgentRow & { risk_level?: string }).risk_level === 'unacceptable').length,
+    high: agents.filter((a) => (a as AgentRow & { risk_level?: string }).risk_level === 'high').length,
+    limited: agents.filter((a) => (a as AgentRow & { risk_level?: string }).risk_level === 'limited').length,
+    minimal: agents.filter((a) => {
+      const rl = (a as AgentRow & { risk_level?: string }).risk_level;
+      return !rl || rl === 'minimal';
+    }).length,
+  };
+
   const showSOC2 = options.framework === 'soc2' || options.framework === 'all';
   const showEU = options.framework === 'eu-ai-act' || options.framework === 'all';
 
@@ -1463,10 +1474,33 @@ export function generateComplianceReport(options: ReportOptions): string {
   </div>
   ` : ''}
 
-  <!-- ═══════════ 8. POLICY VIOLATIONS DETAIL ═══════════ -->
+  <!-- ═══════════ 8. RISK CLASSIFICATION (EU AI Act Art. 6) ═══════════ -->
+  ${showEU ? `
   <div class="section">
     <div class="section-header">
       <div class="section-number">8</div>
+      <h2>Risk Classification</h2>
+      <span class="framework-tag">EU AI Act Article 6</span>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Risk Level</th><th>Agent Count</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>${severityBadge('critical')} Unacceptable</td><td>${riskBreakdown.unacceptable}</td><td>Prohibited per Article 5 - rejected at registration</td></tr>
+        <tr><td>${severityBadge('high')} High</td><td>${riskBreakdown.high}</td><td>Requires verified OIDC, delegation depth &le; 1, no wildcards</td></tr>
+        <tr><td>${severityBadge('medium')} Limited</td><td>${riskBreakdown.limited}</td><td>Transparency obligations apply</td></tr>
+        <tr><td>${severityBadge('low')} Minimal</td><td>${riskBreakdown.minimal}</td><td>Standard controls</td></tr>
+      </tbody>
+    </table>
+  </div>
+  ` : ''}
+
+  <!-- ═══════════ 9. POLICY VIOLATIONS DETAIL ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">9</div>
       <h2>Policy Violations Detail</h2>
     </div>
 
@@ -1497,10 +1531,10 @@ export function generateComplianceReport(options: ReportOptions): string {
     }
   </div>
 
-  <!-- ═══════════ 9. RECOMMENDATIONS ═══════════ -->
+  <!-- ═══════════ 10. RECOMMENDATIONS ═══════════ -->
   <div class="section">
     <div class="section-header">
-      <div class="section-number">9</div>
+      <div class="section-number">10</div>
       <h2>Recommendations</h2>
     </div>
 

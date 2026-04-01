@@ -1,6 +1,7 @@
 import * as jose from 'jose';
 import { v7 as uuidv7 } from 'uuid';
-import { getLatestKey, insertKey, getAllPublicKeys, type KeyRow } from './db.js';
+import { getDb, getLatestKey, insertKey, getAllPublicKeys, type KeyRow } from './db.js';
+import { encryptIfEnabled, decryptIfEnabled, encrypt, decrypt } from './crypto.js';
 
 const ALGORITHM = 'ES256';
 const ISSUER = 'eigent-registry';
@@ -24,10 +25,14 @@ export async function ensureSigningKey(): Promise<void> {
   publicJwk.alg = ALGORITHM;
   publicJwk.use = 'sig';
 
+  const privateKeyJson = JSON.stringify(privateJwk);
+  const encryptedPrivateKey = encryptIfEnabled(privateKeyJson);
+
   const keyRow: KeyRow = {
     id: kid,
+    org_id: 'default',
     public_key: JSON.stringify(publicJwk),
-    private_key: JSON.stringify(privateJwk),
+    private_key: encryptedPrivateKey,
     created_at: new Date().toISOString(),
   };
 
@@ -36,6 +41,7 @@ export async function ensureSigningKey(): Promise<void> {
 
 /**
  * Get the current signing private key from the database.
+ * Decrypts the private key if encryption is enabled.
  */
 async function getSigningKey(): Promise<{ key: jose.KeyLike; kid: string }> {
   const keyRow = getLatestKey();
@@ -43,7 +49,8 @@ async function getSigningKey(): Promise<{ key: jose.KeyLike; kid: string }> {
     throw new Error('No signing key available. Call ensureSigningKey() first.');
   }
 
-  const privateJwk = JSON.parse(keyRow.private_key);
+  const decryptedPrivateKey = decryptIfEnabled(keyRow.private_key);
+  const privateJwk = JSON.parse(decryptedPrivateKey);
   const key = await jose.importJWK(privateJwk, ALGORITHM);
   return { key: key as jose.KeyLike, kid: keyRow.id };
 }
@@ -138,4 +145,41 @@ export function getJwks(): { keys: jose.JWK[] } {
   return {
     keys: publicKeys.map((k) => JSON.parse(k.public_key)),
   };
+}
+
+/**
+ * Rotate encryption key: re-encrypts all stored private keys from oldKey to newKey.
+ * Returns the number of keys that were re-encrypted.
+ */
+export function rotateEncryptionKey(oldKey: string, newKey: string): number {
+  const db = getDb();
+  const allKeys = db.prepare('SELECT * FROM keys ORDER BY created_at DESC').all() as KeyRow[];
+  let rotatedCount = 0;
+
+  for (const keyRow of allKeys) {
+    // Decrypt with old key
+    let plaintext: string;
+    const parts = keyRow.private_key.split(':');
+    if (parts.length === 3) {
+      plaintext = decrypt(keyRow.private_key, oldKey);
+    } else {
+      // Already plaintext (dev mode migration)
+      plaintext = keyRow.private_key;
+    }
+
+    // Re-encrypt with new key
+    const reEncrypted = encrypt(plaintext, newKey);
+    db.prepare('UPDATE keys SET private_key = ? WHERE id = ?').run(reEncrypted, keyRow.id);
+    rotatedCount++;
+  }
+
+  return rotatedCount;
+}
+
+/**
+ * Check if a signing key is available (for readiness checks).
+ */
+export function hasSigningKey(): boolean {
+  const keyRow = getLatestKey();
+  return keyRow !== undefined;
 }

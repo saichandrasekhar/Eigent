@@ -119,6 +119,7 @@ scimApp.post('/api/scim/webhook', async (c) => {
     // Log even if no agents found -- for audit completeness
     insertAuditLog({
       id: uuidv7(),
+      org_id: 'default',
       timestamp: now,
       agent_id: 'system',
       human_email: humanEmail,
@@ -158,6 +159,7 @@ scimApp.post('/api/scim/webhook', async (c) => {
       if (revokedAgent) {
         insertAuditLog({
           id: uuidv7(),
+          org_id: revokedAgent.org_id,
           timestamp: now,
           agent_id: id,
           human_email: humanEmail,
@@ -178,6 +180,7 @@ scimApp.post('/api/scim/webhook', async (c) => {
   // Log the summary event
   insertAuditLog({
     id: uuidv7(),
+    org_id: agents[0]?.org_id ?? 'default',
     timestamp: now,
     agent_id: 'system',
     human_email: humanEmail,
