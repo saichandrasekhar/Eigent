@@ -1,0 +1,17 @@
+{
+  "name": "@eigent/demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eigent end-to-end demo — OAuth for AI Agents in 90 seconds",
+  "type": "module",
+  "scripts": {
+    "demo": "tsx eigent-demo.ts",
+    "mock-mcp": "tsx mock-mcp-server.ts"
+  },
+  "dependencies": {
+    "jose": "^5.9.0",
+    "uuid": "^11.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

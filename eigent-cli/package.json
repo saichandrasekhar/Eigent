@@ -1,0 +1,32 @@
+{
+  "name": "@eigent/cli",
+  "version": "1.0.0",
+  "description": "Eigent CLI — manage agent identities, delegation, and trust",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "eigent": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "conf": "^13.0.1",
+    "inquirer": "^12.3.0",
+    "jose": "^6.0.11",
+    "ora": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
