@@ -12,6 +12,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { pipeline } from "node:stream/promises";
+import * as crypto from "node:crypto";
 import type { Span } from "@opentelemetry/api";
 
 import {
@@ -563,29 +564,48 @@ export class McpInterceptor {
           if (decision.action === "require_approval") {
             this.log(`[enforce] HELD for approval: ${decision.reason}`);
 
-            // Hold the request: wait up to 30 seconds for approval (future: webhook)
-            // For now, timeout with deny after 30 seconds
             const span = this.telemetry.startRequestSpan(
               msg.method,
               msg.id,
               attributes,
             );
 
-            await new Promise((resolve) => setTimeout(resolve, 30_000));
+            const approvalResult = await this.requestAndPollApproval(
+              toolName,
+              this.extractToolArgs(msg),
+              claims,
+            );
+
+            if (approvalResult === "approved") {
+              this.log(`[enforce] APPROVED: ${toolName}`);
+              this.telemetry.endSpan(span);
+              // Fall through to allow the message
+              const allowSpan = this.telemetry.startRequestSpan(
+                msg.method,
+                msg.id,
+                { ...attributes, [MCP_ATTR.EIGENT_DECISION]: "approved" },
+              );
+              this.pendingSpans.set(msg.id, { span: allowSpan, method: msg.method, createdAt: Date.now() });
+              return { action: "allow" };
+            }
+
+            const denyReason = approvalResult === "denied"
+              ? `Eigent: approval denied. ${decision.reason}`
+              : `Eigent: approval ${approvalResult}. ${decision.reason}`;
 
             this.telemetry.endSpan(span, {
               code: -32001,
-              message: `Eigent: approval timeout. ${decision.reason}`,
+              message: denyReason,
             });
 
-            this.log(`[enforce] DENIED (approval timeout): ${decision.reason}`);
+            this.log(`[enforce] ${approvalResult.toUpperCase()}: ${decision.reason}`);
 
             const errorResponse = JSON.stringify({
               jsonrpc: "2.0",
               id: msg.id,
               error: {
                 code: -32001,
-                message: `Eigent: approval timeout after 30s. ${decision.reason}`,
+                message: denyReason,
               },
             });
             process.stdout.write(errorResponse + "\n");
@@ -660,6 +680,98 @@ export class McpInterceptor {
       // Server-initiated notification (e.g., progress, log)
       this.telemetry.recordEvent(`server-notification/${msg.method}`);
     }
+  }
+
+  // ── Approval polling ──────────────────────────────────────────────────
+
+  /** Default approval timeout in milliseconds (5 minutes). */
+  private static readonly APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+
+  /** Polling interval for approval status checks (2 seconds). */
+  private static readonly APPROVAL_POLL_INTERVAL_MS = 2_000;
+
+  /**
+   * Request approval from the registry and poll until resolved.
+   *
+   * @returns "approved", "denied", "expired", or "timeout"
+   */
+  private async requestAndPollApproval(
+    toolName: string,
+    toolArgs: Record<string, unknown> | undefined,
+    claims: EigentClaims | null,
+  ): Promise<"approved" | "denied" | "expired" | "timeout"> {
+    const registryUrl = this.options.registryUrl;
+    if (!registryUrl) {
+      this.log("[approval] No registry URL configured, cannot request approval");
+      return "timeout";
+    }
+
+    const agentId = claims?.sub ?? this.options.agentId ?? "unknown";
+    const argsHash = this.hashArguments(toolArgs);
+    const timeoutMs = McpInterceptor.APPROVAL_TIMEOUT_MS;
+
+    // 1. POST to registry to create approval request
+    let approvalId: string;
+    try {
+      const response = await fetch(`${registryUrl.replace(/\/+$/, "")}/api/v1/approvals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: agentId,
+          tool_name: toolName,
+          arguments_hash: argsHash,
+          timeout_seconds: Math.floor(timeoutMs / 1000),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        this.log(`[approval] Failed to create approval request: HTTP ${response.status} ${errBody}`);
+        return "timeout";
+      }
+
+      const result = await response.json() as { approval_id: string };
+      approvalId = result.approval_id;
+      this.log(`[approval] Created approval request ${approvalId} for ${toolName}`);
+    } catch (err) {
+      this.log(`[approval] Error creating approval: ${err instanceof Error ? err.message : String(err)}`);
+      return "timeout";
+    }
+
+    // 2. Poll GET /api/v1/approvals/:id every 2 seconds
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, McpInterceptor.APPROVAL_POLL_INTERVAL_MS));
+
+      try {
+        const response = await fetch(
+          `${registryUrl.replace(/\/+$/, "")}/api/v1/approvals/${approvalId}`,
+          { signal: AbortSignal.timeout(5_000) },
+        );
+
+        if (!response.ok) continue;
+
+        const approval = await response.json() as { status: string };
+
+        if (approval.status === "approved") return "approved";
+        if (approval.status === "denied") return "denied";
+        if (approval.status === "expired") return "expired";
+        // Still pending -- continue polling
+      } catch {
+        // Network error -- retry on next poll
+      }
+    }
+
+    return "timeout";
+  }
+
+  /**
+   * Hash tool arguments to a short hex string for deduplication.
+   */
+  private hashArguments(args: Record<string, unknown> | undefined): string {
+    const data = JSON.stringify(args ?? {});
+    return crypto.createHash("sha256").update(data).digest("hex");
   }
 
   /**

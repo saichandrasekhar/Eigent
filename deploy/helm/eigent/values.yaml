@@ -1,0 +1,43 @@
+registry:
+  replicas: 2
+  image: ghcr.io/saichandrasekhar/eigent-registry:latest
+  database:
+    type: sqlite  # or postgres
+    url: ""
+  masterKey: ""  # required
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3456
+
+dashboard:
+  replicas: 1
+  image: ghcr.io/saichandrasekhar/eigent-dashboard:latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 3457
+
+ingress:
+  enabled: false
+  className: ""
+  host: eigent.example.com
+  tls: false
+  tlsSecretName: ""
+  annotations: {}
+
+pdb:
+  enabled: true
+  minAvailable: 1

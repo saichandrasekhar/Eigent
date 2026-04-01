@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eigent.fullname" . }}-registry
+  labels:
+    {{- include "eigent.registry.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.registry.service.type }}
+  ports:
+    - port: {{ .Values.registry.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "eigent.registry.selectorLabels" . | nindent 4 }}
