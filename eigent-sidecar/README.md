@@ -1,31 +1,27 @@
 # eigent-sidecar
 
-MCP stdio sidecar that intercepts JSON-RPC traffic between MCP clients and servers, producing OpenTelemetry spans for every operation.
-
-Drop it in front of any MCP server command. The MCP client and server see no difference — the sidecar is fully transparent.
+MCP interceptor that sits between MCP clients and servers, enforcing Eigent token-based authorization and YAML policy rules on every tool call. Supports stdio and HTTP proxy transports.
 
 ## How it works
 
 ```
                     eigent-sidecar
-                  +-----------------------+
- MCP Client      |  stdin --> parser -->  |--> MCP Server stdin
- (Claude, etc.)  |                        |
-                 |<-- parser <-- stdout   |<-- MCP Server stdout
-                  +--------+--------------+
-                           |
-                           v
-                    OTel Collector
-                  (OTLP/HTTP spans)
+                  +---------------------------------+
+ MCP Client      |  stdin --> parser --> policy     |--> MCP Server stdin
+ (Claude, etc.)  |              |        engine     |
+                 |<-- parser <-- stdout             |<-- MCP Server stdout
+                  +--------+--------+---------------+
+                           |        |
+                           v        v
+                    OTel Collector  Prometheus
+                  (OTLP/HTTP spans) (:9090/metrics)
 ```
 
-The sidecar spawns the real MCP server as a child process, pipes stdin/stdout through NDJSON interceptors, and creates OpenTelemetry spans for:
+The sidecar intercepts `tools/call` messages and verifies them through three layers:
 
-- `initialize` — server identity and session start
-- `tools/call` — tool invocation with name, duration, and error status
-- `tools/list` — tool discovery
-- `resources/read` — resource access with URI
-- All other JSON-RPC requests, responses, and notifications
+1. **Token scope check** -- is the tool in the agent's JWS token scope?
+2. **YAML policy engine** -- glob patterns, argument regex, time windows, delegation depth limits
+3. **Approval queue** -- route sensitive operations for human approval
 
 ## Installation
 
@@ -33,7 +29,7 @@ The sidecar spawns the real MCP server as a child process, pipes stdin/stdout th
 npm install -g eigent-sidecar
 ```
 
-Or install locally:
+Or from source:
 
 ```bash
 npm install
@@ -42,70 +38,85 @@ npm run build
 
 ## Usage
 
-Instead of running your MCP server directly:
+### stdio mode (default)
+
+Wrap any MCP server command:
 
 ```bash
-npx @modelcontextprotocol/server-filesystem /tmp
+eigent-sidecar \
+  --mode enforce \
+  --eigent-token-file ~/.eigent/tokens/code-agent.jwt \
+  --policy-file ./eigent-policy.yaml \
+  -- npx @modelcontextprotocol/server-filesystem /tmp
 ```
 
-Wrap it with the sidecar:
+### HTTP proxy mode
+
+Proxy to a remote MCP server:
 
 ```bash
-eigent-sidecar wrap -- npx @modelcontextprotocol/server-filesystem /tmp
+eigent-sidecar \
+  --transport http \
+  --listen-port 8080 \
+  --upstream-url http://mcp-server:3000 \
+  --eigent-token-file ~/.eigent/tokens/code-agent.jwt \
+  --policy-file ./eigent-policy.yaml
 ```
 
 ### Options
 
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--mode <mode>` | `enforce` | `enforce` or `monitor` |
+| `--transport <type>` | `stdio` | `stdio` or `http` |
+| `--eigent-token <token>` | -- | Inline token (JWS) |
+| `--eigent-token-file <path>` | -- | Path to token file |
+| `--registry-url <url>` | `http://localhost:3456` | Registry endpoint |
+| `--policy-file <path>` | -- | YAML policy file |
+| `--listen-port <port>` | `8080` | HTTP proxy listen port |
+| `--upstream-url <url>` | -- | Upstream MCP server URL |
+| `--approval-poll-interval <ms>` | `5000` | Approval queue poll interval |
+| `--otel-endpoint <url>` | -- | OTel collector endpoint |
+| `--otel-service-name <name>` | `eigent-sidecar` | OTel service name |
+| `--prometheus-port <port>` | -- | Prometheus metrics port |
+| `--verbose` | false | Debug logging |
+
+## YAML Policy Engine
+
+Policies are defined in YAML and hot-reload on file changes:
+
+```yaml
+version: "1"
+
+policies:
+  - tool: "read_file"
+    allow: true
+    conditions:
+      args:
+        path: "^/safe/.*"
+
+  - tool: "write_file"
+    allow: true
+    conditions:
+      time_window:
+        start: "09:00"
+        end: "18:00"
+        timezone: "America/New_York"
+
+  - tool: "deploy_*"
+    allow: true
+    require_approval: true
+
+  - tool: "shell_exec"
+    allow: false
+
+defaults:
+  allow: false
 ```
-eigent-sidecar wrap [options] <command> [args...]
 
-Options:
-  --otel-endpoint <url>   OTel collector endpoint (default: http://localhost:4318)
-  --agent-id <id>         Agent identity to attach to all spans
-  --verbose               Log intercepted messages to stderr
-```
-
-### With a local OTel collector
-
-Start a collector (e.g., Jaeger all-in-one):
-
-```bash
-docker run -d --name jaeger \
-  -p 16686:16686 \
-  -p 4318:4318 \
-  jaegertracing/all-in-one:latest
-```
-
-Then run:
-
-```bash
-eigent-sidecar wrap \
-  --otel-endpoint http://localhost:4318 \
-  --agent-id my-agent \
-  --verbose \
-  -- npx @modelcontextprotocol/server-filesystem /tmp
-```
-
-Open http://localhost:16686 to see traces.
+Features: glob patterns, argument regex, time windows, delegation depth limits, approval routing, hot-reload.
 
 ## Claude Desktop configuration
-
-In your Claude Desktop config (`claude_desktop_config.json`), replace the server command with the sidecar:
-
-**Before:**
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-    }
-  }
-}
-```
-
-**After:**
 
 ```json
 {
@@ -113,9 +124,10 @@ In your Claude Desktop config (`claude_desktop_config.json`), replace the server
     "filesystem": {
       "command": "eigent-sidecar",
       "args": [
-        "wrap",
-        "--otel-endpoint", "http://localhost:4318",
-        "--agent-id", "claude-desktop",
+        "--mode", "enforce",
+        "--eigent-token-file", "~/.eigent/tokens/code-agent.jwt",
+        "--registry-url", "http://localhost:3456",
+        "--policy-file", "~/.eigent/policies/filesystem.yaml",
         "--",
         "npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"
       ]
@@ -126,21 +138,30 @@ In your Claude Desktop config (`claude_desktop_config.json`), replace the server
 
 ## Span attributes
 
-The sidecar attaches these attributes to spans, following the [OTel MCP semantic conventions](../otel-mcp-convention/):
-
 | Attribute | Description |
 |---|---|
 | `rpc.system` | Always `mcp` |
 | `rpc.method` | JSON-RPC method (e.g., `tools/call`) |
-| `mcp.tool.name` | Tool name for `tools/call` requests |
-| `mcp.server.name` | Server name from `initialize` response |
-| `mcp.server.version` | Server version from `initialize` response |
-| `mcp.session.id` | Unique session ID for this sidecar instance |
-| `mcp.resource.uri` | Resource URI for `resources/read` requests |
-| `mcp.transport` | Always `stdio` |
-| `eigent.agent.id` | Agent identity (from `--agent-id`) |
-| `rpc.jsonrpc.error_code` | JSON-RPC error code (on error) |
-| `rpc.jsonrpc.error_message` | JSON-RPC error message (on error) |
+| `mcp.tool.name` | Tool name |
+| `mcp.server.name` | Server name from `initialize` |
+| `mcp.session.id` | Session ID |
+| `eigent.agent.id` | Agent identity |
+| `eigent.agent.name` | Agent name |
+| `eigent.human.email` | Authorizing human |
+| `eigent.action` | `allowed`, `blocked`, or `approval_pending` |
+| `eigent.delegation.depth` | Delegation depth |
+| `eigent.scope` | Agent scope |
+| `eigent.policy.matched_rule` | Policy rule that matched |
+| `eigent.mode` | `enforce` or `monitor` |
+
+## Prometheus metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `eigent_tool_calls_total` | counter | Tool calls by tool, action, agent |
+| `eigent_tool_call_duration_seconds` | histogram | Tool call latency |
+| `eigent_policy_evaluations_total` | counter | Policy evaluations by result |
+| `eigent_approval_queue_pending` | gauge | Pending approval requests |
 
 ## Development
 
@@ -148,8 +169,9 @@ The sidecar attaches these attributes to spans, following the [OTel MCP semantic
 npm install
 npm run build
 npm run dev        # watch mode
+npm test
 ```
 
 ## License
 
-MIT
+Apache 2.0

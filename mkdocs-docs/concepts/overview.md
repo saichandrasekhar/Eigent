@@ -6,12 +6,12 @@ Eigent is an identity and governance layer for AI agents. It answers the questio
 
 An **eigent** (a portmanteau of "eigen" + "agent") is a cryptographic identity token that binds an AI agent to:
 
-- The **human** who authorized it
+- The **human** who authorized it (verified via OIDC -- Okta, Entra ID, or Google)
 - The **permissions** it is allowed to exercise
 - The **delegation chain** through which it received those permissions
 - A **time-bound** validity window
 
-Every eigent is a signed JWS (JSON Web Signature) using Ed25519 cryptography. It can be verified by any party without contacting a central server, though the registry provides additional services like revocation checking and audit logging.
+Every eigent is a signed JWS (JSON Web Signature) using Ed25519 cryptography. It can be verified by any party without contacting a central server, though the registry provides additional services like revocation checking, audit logging, compliance reporting, and SIEM webhooks.
 
 ## The Delegation Chain Problem
 
@@ -32,10 +32,11 @@ Without Eigent, every node in this graph operates anonymously. There is no way t
 - **What permissions** does this sub-agent actually have?
 - **Can we revoke** Agent B's access without affecting Agent A?
 - **Who is liable** if Agent B deletes production data?
+- **Does this delegation comply** with EU AI Act Article 14 (Human Oversight)?
 
 ## How Eigent Solves It
 
-Eigent introduces four primitives that together provide complete agent governance:
+Eigent introduces five primitives that together provide complete agent governance:
 
 ### 1. Identity Tokens
 
@@ -88,9 +89,22 @@ This ensures that:
 
 ### 4. Cascade Revocation
 
-Revoking an agent automatically revokes all of its descendants. If Agent A is compromised, a single `eigent revoke code-agent` command invalidates Agent A and every agent it ever delegated to.
+Revoking an agent automatically revokes all of its descendants. If Agent A is compromised, a single `eigent revoke code-agent` command invalidates Agent A and every agent it ever delegated to. SCIM deprovisioning automatically revokes all agents when a user leaves the organization.
 
 [:octicons-arrow-right-24: Revocation details](revocation.md)
+
+### 5. Runtime Enforcement
+
+The sidecar proxy intercepts every MCP tool call and enforces permissions through multiple layers:
+
+1. **Token scope check** -- is the tool in the agent's scope?
+2. **YAML policy engine** -- glob patterns, argument regex, time windows, depth limits
+3. **Approval queue** -- sensitive operations require human approval before execution
+4. **Audit logging** -- every call (allowed or denied) is logged with full chain context
+
+The policy engine supports hot-reloading, so policies take effect without restarting the sidecar.
+
+[:octicons-arrow-right-24: Sidecar reference](../api/sidecar.md)
 
 ## The Eigent Flow
 
@@ -103,6 +117,7 @@ sequenceDiagram
     participant R as Registry
     participant A as Agent
     participant S as Sidecar
+    participant P as Policy Engine
     participant T as MCP Tool
 
     H->>CLI: eigent login
@@ -110,32 +125,37 @@ sequenceDiagram
     R-->>CLI: session
 
     H->>CLI: eigent issue code-agent
-    CLI->>R: POST /api/agents
+    CLI->>R: POST /api/v1/agents
     R-->>CLI: signed JWS token
 
     A->>S: tool call (with token)
-    S->>R: POST /api/verify
+    S->>S: token scope check
+    S->>P: evaluate YAML policy
+    P-->>S: allowed
+    S->>R: POST /api/v1/verify
     R-->>S: allowed / denied
     S->>T: forward call (if allowed)
     T-->>S: result
     S-->>A: result
 
     H->>CLI: eigent revoke code-agent
-    CLI->>R: DELETE /api/agents/:id
-    R-->>CLI: cascade revoked
+    CLI->>R: DELETE /api/v1/agents/:id
+    R-->>CLI: cascade revoked (all descendants)
 ```
 
 ## Design Principles
 
 | Principle | Implementation |
 |-----------|---------------|
-| **Every agent has a human** | Human binding in every token; no orphan agents |
-| **Least privilege** | Scope intersection ensures permissions only narrow |
+| **Every agent has a human** | OIDC-verified human binding in every token; SCIM deprovision on user removal |
+| **Least privilege** | Three-way scope intersection ensures permissions only narrow |
 | **Short-lived by default** | 1-hour TTL; child cannot outlive parent |
-| **Offline verification** | Ed25519 JWS can be verified without network calls |
-| **Cascade revocation** | Revoking parent revokes all descendants |
-| **Complete audit trail** | Every issuance, delegation, verification, and revocation is logged |
-| **Zero trust** | Every tool call is verified, even from trusted agents |
+| **Offline verification** | Ed25519 JWS can be verified without network calls via JWKS |
+| **Cascade revocation** | Revoking parent revokes all descendants; SCIM triggers cascade |
+| **Complete audit trail** | Every issuance, delegation, verification, revocation, and approval is logged |
+| **Zero trust** | Every tool call is verified through token + policy engine, even from trusted agents |
+| **Defense in depth** | Token scope + YAML policy + approval queue = three enforcement layers |
+| **Multi-tenancy** | Organization-scoped isolation with per-org policies and compliance |
 
 ## Key Terms
 
@@ -152,7 +172,16 @@ Cascade revocation
 :   The automatic revocation of all descendant agents when a parent agent is revoked.
 
 Sidecar
-:   A lightweight MCP traffic interceptor that enforces Eigent policies by verifying agent tokens before forwarding tool calls to the actual MCP server.
+:   A lightweight MCP traffic interceptor that enforces Eigent policies by verifying agent tokens and evaluating YAML policies before forwarding tool calls.
+
+Policy engine
+:   YAML-based rule engine supporting glob patterns, argument regex, time windows, delegation depth limits, and approval requirements. Hot-reloadable.
+
+Approval queue
+:   A mechanism for routing sensitive tool calls to human operators for approval before execution.
 
 Trust domain
 :   A SPIFFE-style namespace (e.g., `spiffe://company.example`) that scopes agent identities within an organization.
+
+Organization
+:   A multi-tenancy boundary. Agents, policies, and compliance reports are scoped to an organization.

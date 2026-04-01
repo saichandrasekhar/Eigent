@@ -12,7 +12,7 @@ hide:
 
     ---
 
-    Every AI agent gets a signed, verifiable identity token bound to the human who authorized it. No more anonymous agents.
+    Every AI agent gets an Ed25519-signed JWS token bound to the human who authorized it. No more anonymous agents. Self-verifiable and tamper-proof.
 
     [:octicons-arrow-right-24: Learn about tokens](concepts/tokens.md)
 
@@ -20,23 +20,23 @@ hide:
 
     ---
 
-    Agent A delegates to Agent B, which delegates to Tool C. Every hop is recorded, scoped, and auditable.
+    Agent A delegates to Agent B, which delegates to Tool C. Every hop narrows permissions. Every chain is recorded, scoped, and auditable.
 
     [:octicons-arrow-right-24: Understand delegation](concepts/delegation.md)
 
--   :material-lock-check:{ .lg .middle } **Permission Governance**
+-   :material-lock-check:{ .lg .middle } **Runtime Enforcement**
 
     ---
 
-    Three-way scope intersection ensures permissions can only narrow, never widen. Least privilege by construction.
+    MCP sidecar with YAML policy engine -- glob patterns, time windows, argument regex, depth limits. Approval queue for sensitive operations. Prometheus metrics and OTel spans.
 
-    [:octicons-arrow-right-24: Permission model](concepts/permissions.md)
+    [:octicons-arrow-right-24: Sidecar reference](api/sidecar.md)
 
 -   :material-magnify-scan:{ .lg .middle } **Agent Discovery**
 
     ---
 
-    Scan 14 config locations to find every MCP server, shadow agent, and LLM-powered process in your environment.
+    Free scanner finds every MCP server, shadow agent, and LLM-powered process across 14 config locations. SARIF output for GitHub Security tab.
 
     [:octicons-arrow-right-24: Quick start](getting-started/quickstart.md)
 
@@ -58,10 +58,23 @@ Eigent provides the missing identity and governance layer for AI agents, the sam
 
 ## Quick Install
 
+=== "Docker Compose (full stack)"
+
+    ```bash
+    git clone https://github.com/saichandrasekhar/Eigent.git
+    cd Eigent && docker compose up
+    ```
+
 === "CLI (npm)"
 
     ```bash
     npm install -g @eigent/cli
+    ```
+
+=== "Python SDK (pip)"
+
+    ```bash
+    pip install eigent
     ```
 
 === "Scanner (pip)"
@@ -70,19 +83,21 @@ Eigent provides the missing identity and governance layer for AI agents, the sam
     pip install eigent-scan
     ```
 
-=== "Sidecar (npm)"
+=== "Helm (Kubernetes)"
 
     ```bash
-    npm install -g @eigent/sidecar
+    helm install eigent deploy/helm/eigent
     ```
 
 Then get started in 60 seconds:
 
 ```bash
 eigent init                                    # Initialize project
-eigent login -e alice@company.com              # Authenticate as human
+eigent login -e alice@company.com              # Authenticate via OIDC
 eigent issue code-agent -s read,write,test     # Issue agent identity
-eigent verify code-agent read                  # Check permissions
+eigent delegate code-agent runner -s test      # Delegate with narrowing
+eigent verify runner test                      # Check permissions
+eigent verify runner write                     # DENIED - narrowed out
 ```
 
 ---
@@ -96,24 +111,28 @@ eigent verify code-agent read                  # Check permissions
 | Projected agent identity market | **$38.8B** by 2028 | Market analysis |
 | Shadow AI breach cost premium | **$670K** more than standard | IBM Cost of Data Breach, 2025 |
 
-Your developers are installing MCP servers with filesystem access, shell execution, and database credentials with **zero authentication** and **zero monitoring**. Eigent finds them all and locks them down.
-
 ---
 
 ## How Eigent Compares
 
-| Capability | **Eigent** | Astrix Security | Okta NHI | DIY (OPA + ELK) |
+| Capability | **Eigent** | Okta / Entra ID | Aembit | Astrix |
 |---|:---:|:---:|:---:|:---:|
-| MCP server discovery | :white_check_mark: | :x: | :x: | :x: |
-| Shadow agent detection | :white_check_mark: | Partial | :x: | Manual |
-| Cryptographic identity tokens | :white_check_mark: | :x: | :x: | Custom |
-| Delegation chain governance | :white_check_mark: | :x: | :x: | :x: |
-| Cascade revocation | :white_check_mark: | :x: | Partial | Custom |
-| SARIF / GitHub Security | :white_check_mark: | :x: | :x: | :x: |
-| OTel telemetry sidecar | :white_check_mark: | :x: | :x: | Custom |
-| Open source | :white_check_mark: | :x: | :x: | :white_check_mark: |
-| Setup time | **30 seconds** | Weeks | Weeks | Months |
-| Price | **Free** | $$$$$ | $$$$$ | Engineering time |
+| Human-to-agent identity binding | :white_check_mark: | :x: | :x: | Partial |
+| Agent-to-agent delegation chains | :white_check_mark: | :x: | :x: | :x: |
+| Permission narrowing at each hop | :white_check_mark: | :x: | :x: | :x: |
+| Cascade revocation | :white_check_mark: | Partial | :x: | :x: |
+| MCP-native enforcement sidecar | :white_check_mark: | :x: | Partial | :x: |
+| YAML policy engine (glob, time, regex) | :white_check_mark: | :x: | :x: | :x: |
+| Approval queue for sensitive ops | :white_check_mark: | :x: | :x: | :x: |
+| OIDC SSO (Okta, Entra, Google) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :x: |
+| SCIM deprovisioning | :white_check_mark: | :white_check_mark: | :x: | :x: |
+| Multi-tenancy | :white_check_mark: | :white_check_mark: | :white_check_mark: | :x: |
+| Compliance reports (EU AI Act, SOC 2) | :white_check_mark: | :x: | :x: | Partial |
+| SIEM webhooks | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| Python SDK | :white_check_mark: | :white_check_mark: | :x: | :x: |
+| MCP server discovery | :white_check_mark: | :x: | :x: | Partial |
+| Open source | :white_check_mark: | :x: | :x: | :x: |
+| Setup time | **5 minutes** | Weeks | Weeks | Weeks |
 
 ---
 
@@ -121,15 +140,19 @@ Your developers are installing MCP servers with filesystem access, shell executi
 
 ```mermaid
 graph LR
-    Human[Human Operator] -->|authenticates| CLI[Eigent CLI]
+    Human[Human Operator] -->|OIDC auth| CLI[Eigent CLI]
     CLI -->|issues token| Registry[Eigent Registry]
     Registry -->|signed JWS| AgentA[Agent A]
     AgentA -->|delegates| AgentB[Agent B]
     AgentB -->|calls tool| Sidecar[Eigent Sidecar]
     Sidecar -->|verifies token| Registry
+    Sidecar -->|YAML policy check| Sidecar
     Sidecar -->|if allowed| Tool[MCP Server / Tool]
-    Sidecar -->|audit events| OTel[OpenTelemetry]
-    Registry -->|audit log| Dashboard[Dashboard / SIEM]
+    Sidecar -->|OTel spans| OTel[OpenTelemetry]
+    Sidecar -->|metrics| Prom[Prometheus]
+    Registry -->|audit events| Dashboard[Dashboard]
+    Registry -->|webhooks| SIEM[SIEM / Slack]
+    PythonSDK[Python SDK] -->|REST API| Registry
 ```
 
 ---
@@ -138,11 +161,15 @@ graph LR
 
 | Component | Package | Description |
 |-----------|---------|-------------|
-| **eigent-cli** | `@eigent/cli` (npm) | Human-facing CLI for identity management |
-| **eigent-core** | `@eigent/core` (npm) | Token issuance, delegation, permission logic |
-| **eigent-registry** | `@eigent/registry` (npm) | Central identity registry with audit log |
-| **eigent-sidecar** | `@eigent/sidecar` (npm) | MCP traffic interceptor with OTel export |
-| **eigent-scan** | `eigent-scan` (PyPI) | Security scanner for agent discovery |
+| **eigent-core** | `@eigent/core` (npm) | Ed25519 crypto, JWS tokens, delegation, scope intersection, revocation (76 tests) |
+| **eigent-registry** | `@eigent/registry` (npm) | Hono API -- OIDC, SCIM, multi-tenancy, approval queue, compliance, PostgreSQL, AES-256-GCM |
+| **eigent-sidecar** | `@eigent/sidecar` (npm) | MCP interceptor -- stdio + HTTP, YAML policy engine, approval queue, OTel, Prometheus |
+| **eigent-cli** | `@eigent/cli` (npm) | 16 commands for full agent lifecycle management |
+| **eigent-py** | `eigent` (PyPI) | Python SDK -- EigentClient + @eigent_protected decorator |
+| **eigent-scan** | `eigent-scan` (PyPI) | Security scanner for agent discovery (14 config locations, shadow detection) |
+| **eigent-dashboard** | — | Next.js -- 6 pages, NextAuth SSO, RBAC (admin/operator/viewer) |
+| **deploy/helm** | — | Kubernetes Helm chart |
+| **deploy/terraform** | — | Terraform IaC modules |
 
 ---
 
@@ -152,7 +179,7 @@ graph LR
 
     ---
 
-    Go from zero to a secured agent in 5 minutes.
+    Go from zero to a secured agent in 5 minutes with Docker Compose.
 
     [:octicons-arrow-right-24: Quick start guide](getting-started/quickstart.md)
 
@@ -168,7 +195,7 @@ graph LR
 
     ---
 
-    Full REST API, CLI commands, and library docs.
+    Full REST API, CLI commands, sidecar config, and Python SDK.
 
     [:octicons-arrow-right-24: API reference](api/registry.md)
 
@@ -176,7 +203,7 @@ graph LR
 
     ---
 
-    EU AI Act and SOC 2 mapping with evidence generation.
+    EU AI Act and SOC 2 mapping with automated evidence generation.
 
     [:octicons-arrow-right-24: Compliance docs](compliance/eu-ai-act.md)
 

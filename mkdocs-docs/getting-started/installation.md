@@ -1,10 +1,27 @@
 # Installation
 
-Eigent is composed of several packages. Install only the components you need.
+Eigent is composed of several packages. Install the components you need for your use case.
+
+## Docker Compose (Full Stack)
+
+The fastest way to run the complete Eigent platform -- registry, sidecar, dashboard, and a demo MCP server:
+
+```bash
+git clone https://github.com/saichandrasekhar/Eigent.git
+cd Eigent
+docker compose up
+```
+
+This starts:
+
+- **Registry** on `http://localhost:3456`
+- **Dashboard** on `http://localhost:3000`
+- **Sidecar** connected to the registry
+- **Demo MCP server** for testing
 
 ## CLI
 
-The Eigent CLI is the primary interface for managing agent identities. It handles authentication, token issuance, delegation, revocation, and auditing.
+The Eigent CLI is the primary interface for managing agent identities. It handles authentication, token issuance, delegation, revocation, key rotation, compliance reports, and auditing.
 
 === "npm"
 
@@ -32,6 +49,38 @@ eigent --version
 ```
 
 **Requirements:** Node.js 18 or later.
+
+## Python SDK
+
+The Python SDK provides `EigentClient` for programmatic agent management and `@eigent_protected` for tool-level enforcement.
+
+=== "pip"
+
+    ```bash
+    pip install eigent
+    ```
+
+=== "pipx (isolated)"
+
+    ```bash
+    pipx install eigent
+    ```
+
+=== "uv"
+
+    ```bash
+    uv pip install eigent
+    ```
+
+```python
+from eigent import EigentClient
+
+client = EigentClient(registry_url="http://localhost:3456")
+session = client.login(email="alice@company.com", demo_mode=True)
+agent = client.register_agent(name="my-agent", scope=["read_file"])
+```
+
+**Requirements:** Python 3.10 or later.
 
 ## Scanner
 
@@ -66,34 +115,39 @@ eigent-scan --version
 
 ## Registry
 
-The registry is the central identity server. It stores agent records, manages delegation chains, handles token verification, and maintains the audit log.
+The registry is the central identity server. It stores agent records, manages delegation chains, handles OIDC authentication, and provides the audit log, approval queue, compliance reports, and SIEM webhooks.
 
-```bash
-# Clone the repository
-git clone https://github.com/saichandrasekhar/Eigent.git
-cd Eigent/eigent-registry
+=== "Docker"
 
-# Install dependencies
-npm install
-
-# Start the registry (development)
-npm run dev
-```
-
-The registry starts on `http://localhost:3456` by default. It uses an embedded SQLite database that requires no external database setup.
-
-!!! tip "Production deployment"
-    For production, build the registry and run with a process manager:
     ```bash
+    docker compose up registry
+    ```
+
+=== "From source"
+
+    ```bash
+    cd eigent-registry
+    npm install
+    npm run dev    # Development with SQLite
+    ```
+
+=== "Production"
+
+    ```bash
+    cd eigent-registry
     npm run build
+    DATABASE_URL=postgres://user:pass@host/eigent \
+    EIGENT_MASTER_KEY=your-256-bit-key \
     NODE_ENV=production node dist/index.js
     ```
 
-**Requirements:** Node.js 18 or later.
+The registry starts on `http://localhost:3456` by default. In development mode it uses an embedded SQLite database. For production, configure PostgreSQL via `DATABASE_URL` and set `EIGENT_MASTER_KEY` for AES-256-GCM encryption at rest.
+
+**Requirements:** Node.js 18 or later. PostgreSQL 14+ for production.
 
 ## Sidecar
 
-The sidecar is a lightweight MCP traffic interceptor that enforces Eigent policies on tool calls in real time. It sits between the AI agent and the MCP server, verifying every request against the agent's token.
+The sidecar is a lightweight MCP traffic interceptor that enforces Eigent policies on tool calls in real time. It supports both stdio and HTTP proxy modes, with a YAML policy engine, approval queue polling, OTel spans, and Prometheus metrics.
 
 === "npm (global)"
 
@@ -104,7 +158,7 @@ The sidecar is a lightweight MCP traffic interceptor that enforces Eigent polici
 === "From source"
 
     ```bash
-    cd Eigent/eigent-sidecar
+    cd eigent-sidecar
     npm install
     npm run build
     npm link
@@ -128,31 +182,53 @@ The core library provides the cryptographic primitives for token issuance, deleg
     pnpm add @eigent/core
     ```
 
+76 tests cover Ed25519 key generation, JWS signing/verification, scope intersection, and delegation chain validation.
+
 **Requirements:** Node.js 18 or later.
 
-## Docker (Coming Soon)
+## Helm Chart (Kubernetes)
 
-A Docker Compose setup for running the full Eigent stack is planned. This will include the registry, dashboard, and a pre-configured sidecar.
+Deploy the full Eigent stack to Kubernetes:
 
-```yaml
-# docker-compose.yml (planned)
-services:
-  registry:
-    image: ghcr.io/saichandrasekhar/eigent-registry:latest
-    ports:
-      - "3456:3456"
-    volumes:
-      - eigent-data:/data
+```bash
+helm install eigent deploy/helm/eigent \
+  --set registry.database.url=postgres://... \
+  --set registry.masterKey=your-key \
+  --set registry.oidc.issuer=https://your-idp.com
+```
 
-  dashboard:
-    image: ghcr.io/saichandrasekhar/eigent-dashboard:latest
-    ports:
-      - "3457:3457"
-    depends_on:
-      - registry
+See `deploy/helm/eigent/values.yaml` for all configuration options.
 
-volumes:
-  eigent-data:
+## Terraform
+
+Infrastructure-as-code modules for provisioning Eigent on AWS, GCP, or Azure:
+
+```hcl
+module "eigent" {
+  source = "./deploy/terraform"
+
+  database_url = var.database_url
+  master_key   = var.master_key
+  oidc_issuer  = var.oidc_issuer
+}
+```
+
+See `deploy/terraform/` for available modules.
+
+## Dashboard
+
+The Next.js dashboard provides 6 pages: overview, agent inventory, delegation tree visualization, audit log, policy editor, and compliance reports. It uses NextAuth for SSO with RBAC (admin, operator, viewer).
+
+```bash
+cd eigent-dashboard
+npm install
+npm run dev    # http://localhost:3000
+```
+
+Or via Docker Compose:
+
+```bash
+docker compose up dashboard
 ```
 
 ## Verifying Your Setup
@@ -169,10 +245,6 @@ eigent status
 
 ??? example "Expected output"
     ```
-      ╔══════════════════════════════════════╗
-      ║          E I G E N T                ║
-      ╚══════════════════════════════════════╝
-
       Project     initialized
       Registry    http://localhost:3456
       Session     not logged in
@@ -187,11 +259,19 @@ If the registry shows as `reachable`, your setup is complete. Proceed to the [Qu
 
 ### Registry not reachable
 
-Ensure the registry is running in a separate terminal. The CLI connects to `http://localhost:3456` by default:
+Ensure the registry is running. With Docker Compose:
+
+```bash
+docker compose up registry
+```
+
+Or from source:
 
 ```bash
 cd eigent-registry && npm run dev
 ```
+
+The CLI connects to `http://localhost:3456` by default.
 
 ### Permission denied on global install
 
@@ -210,7 +290,7 @@ npm install -g @eigent/cli
 
 ### Python version too old
 
-Eigent Scanner requires Python 3.10+. Check your version:
+Eigent SDK and Scanner require Python 3.10+. Check your version:
 
 ```bash
 python3 --version

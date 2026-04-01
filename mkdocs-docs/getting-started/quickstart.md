@@ -1,42 +1,50 @@
 # Quick Start
 
-Get from zero to a fully secured AI agent in under 5 minutes. This guide walks you through the core Eigent workflow: authenticate as a human, issue an agent identity, delegate permissions, verify access, and wrap an MCP server with the enforcing sidecar.
+Get from zero to a fully secured AI agent in under 5 minutes. This guide walks you through the core Eigent workflow: start the stack, authenticate as a human, issue an agent identity, delegate permissions, verify access, and wrap an MCP server with the enforcing sidecar.
 
 ## Prerequisites
 
-- **Node.js 18+** (for the CLI, registry, and sidecar)
-- **npm** or **pnpm**
+- **Docker** and **Docker Compose** (for the full stack), or **Node.js 18+** (for running components individually)
+- **npm**
 - A terminal
 
 !!! tip "No cloud account required"
-    Eigent runs entirely locally during development. The registry uses an embedded SQLite database. No sign-ups, no API keys, no external dependencies.
+    Eigent runs entirely locally during development. Docker Compose starts the registry, dashboard, and sidecar with a single command. No sign-ups, no API keys, no external dependencies.
 
-## Step 1: Install and Initialize
+## Step 1: Start the Stack
 
 ```bash
-# Install the CLI globally
-npm install -g @eigent/cli
+git clone https://github.com/saichandrasekhar/Eigent.git
+cd Eigent
+docker compose up
+```
 
-# Initialize Eigent in your project
+This starts the registry on `http://localhost:3456`, the dashboard on `http://localhost:3000`, and a demo MCP server.
+
+??? example "Alternative: run without Docker"
+    ```bash
+    # Start the registry in one terminal
+    cd eigent-registry && npm install && npm run dev
+
+    # Install the CLI globally
+    npm install -g @eigent/cli
+    ```
+
+## Step 2: Install the CLI and Initialize
+
+```bash
+npm install -g @eigent/cli
 eigent init
 ```
 
 ??? example "Expected output"
     ```
-    ✔ Connected to registry.
-
-      Eigent initialized. Registry at http://localhost:3456
-      Config: .eigent/config.json
-      Keys:   ~/.eigent/keys/
+    Eigent initialized. Registry at http://localhost:3456
+    Config: .eigent/config.json
+    Keys:   ~/.eigent/keys/
     ```
 
-!!! note "Start the registry first"
-    If `eigent init` warns that the registry is not reachable, start it in a separate terminal:
-    ```bash
-    cd eigent-registry && npm install && npm run dev
-    ```
-
-## Step 2: Authenticate as a Human
+## Step 3: Authenticate as a Human
 
 Every agent identity must trace back to a human. This step binds your human identity to the Eigent session.
 
@@ -46,20 +54,14 @@ eigent login -e alice@company.com
 
 ??? example "Expected output"
     ```
-      ╔══════════════════════════════════════╗
-      ║          E I G E N T                ║
-      ╚══════════════════════════════════════╝
-
-    ✔ Authenticated.
-
-      Logged in as alice@company.com
-      Session stored in ~/.eigent/session.json
+    Logged in as alice@company.com
+    Session stored in ~/.eigent/session.json
     ```
 
-!!! info "Simulated OIDC"
-    In development mode, Eigent simulates an OIDC authentication flow. In production, this integrates with your existing identity provider (Okta, Auth0, Azure AD, Google Workspace).
+!!! info "OIDC in production"
+    In development mode, Eigent simulates OIDC authentication. In production, this integrates with your existing identity provider (Okta, Entra ID, Google Workspace) configured on the registry.
 
-## Step 3: Issue an Agent Identity
+## Step 4: Issue an Agent Identity
 
 Create a cryptographic identity for your AI agent with specific tool permissions:
 
@@ -79,7 +81,7 @@ This issues a signed JWS token that:
 
 ??? example "Expected output"
     ```
-    ✔ Token issued.
+    Token issued.
 
       Agent        code-agent
       ID           019746a2-3f8b-7d4e-a1c5-9b3d2e7f0a1b
@@ -89,7 +91,7 @@ This issues a signed JWS token that:
       Token        ~/.eigent/tokens/code-agent.jwt
     ```
 
-## Step 4: Delegate to a Sub-Agent
+## Step 5: Delegate to a Sub-Agent
 
 Agent `code-agent` can delegate a subset of its permissions to a child agent:
 
@@ -100,7 +102,7 @@ eigent delegate code-agent test-runner \
 
 ??? example "Expected output"
     ```
-    ✔ Delegation successful.
+    Delegation successful.
 
       Child Agent    test-runner
       Granted Scope  run_tests
@@ -111,7 +113,7 @@ eigent delegate code-agent test-runner \
 !!! warning "Permissions can only narrow"
     The child agent `test-runner` receives only `run_tests`. It cannot access `read_file` or `write_file` even if it requests them. Permissions flow downhill, never uphill.
 
-## Step 5: Verify Permissions
+## Step 6: Verify Permissions
 
 Check whether an agent is authorized for a specific tool:
 
@@ -125,19 +127,19 @@ eigent verify test-runner read_file
 
 ??? example "Expected output"
     ```
-      ALLOWED  code-agent → read_file
+      ALLOWED  code-agent -> read_file
       Agent code-agent is authorized to call read_file
       Scope: read_file, write_file, run_tests
       Human: alice@company.com
-      Chain: alice@company.com → code-agent
+      Chain: alice@company.com -> code-agent
 
-      DENIED  test-runner → read_file
+      DENIED  test-runner -> read_file
       Agent test-runner is NOT authorized to call read_file
       Scope: run_tests
       Reason: Tool "read_file" is not in agent scope
     ```
 
-## Step 6: Wrap an MCP Server
+## Step 7: Wrap an MCP Server
 
 The sidecar intercepts all MCP traffic and enforces permissions in real time:
 
@@ -146,15 +148,15 @@ eigent wrap npx -y @modelcontextprotocol/server-filesystem /tmp \
   --agent code-agent
 ```
 
-This launches the filesystem MCP server behind the Eigent sidecar. Every tool call is verified against the agent's token before being forwarded to the server.
+This launches the filesystem MCP server behind the Eigent sidecar. Every tool call is verified against the agent's token and the YAML policy engine before being forwarded to the server.
 
 !!! danger "Without Eigent"
     The filesystem MCP server has unrestricted read/write access. Any connected AI agent can read `/etc/passwd`, overwrite config files, or exfiltrate data.
 
 !!! success "With Eigent"
-    The sidecar checks every `read_file` and `write_file` call against the agent's scoped permissions. Unauthorized calls are blocked and logged.
+    The sidecar checks every `read_file` and `write_file` call against the agent's scoped permissions. Unauthorized calls are blocked and logged. The YAML policy engine adds glob patterns, time windows, and argument validation.
 
-## Step 7: View the Audit Trail
+## Step 8: View the Audit Trail
 
 Every action is logged with full delegation chain context:
 
@@ -167,16 +169,35 @@ eigent audit --limit 10
       Audit Log (10 total)
 
       TIME                 AGENT         ACTION              TOOL         HUMAN
-      2026-03-31 14:00:01  code-agent    issued              —            alice@company.com
-      2026-03-31 14:00:05  test-runner   delegated           —            alice@company.com
+      2026-03-31 14:00:01  code-agent    issued              -            alice@company.com
+      2026-03-31 14:00:05  test-runner   delegated           -            alice@company.com
       2026-03-31 14:00:12  code-agent    tool_call_allowed   read_file    alice@company.com
       2026-03-31 14:00:15  test-runner   tool_call_blocked   read_file    alice@company.com
     ```
 
+## Step 9: Generate a Compliance Report
+
+```bash
+eigent compliance-report --framework eu-ai-act --period 30d
+```
+
+This generates a compliance evidence report mapping your agent activity to EU AI Act articles or SOC 2 controls.
+
+## Step 10: Cascade Revoke
+
+Revoke an agent and all of its descendants in one command:
+
+```bash
+eigent revoke code-agent
+```
+
+This immediately invalidates `code-agent`, `test-runner`, and every agent in the delegation subtree.
+
 ## Next Steps
 
-- [Installation](installation.md) for detailed install instructions across all components
-- [Your First Eigent](first-eigent.md) for a deeper tutorial
-- [Concepts Overview](../concepts/overview.md) to understand the architecture
-- [MCP Server Integration](../guides/mcp-integration.md) for production sidecar setup
-- [CI/CD Pipeline](../guides/cicd.md) to add agent scanning to your build
+- [Installation](installation.md) for detailed install instructions (Docker Compose, Helm, Terraform, Python SDK)
+- [Concepts Overview](../concepts/overview.md) to understand delegation chains, tokens, and permissions
+- [MCP Server Integration](../guides/mcp-integration.md) for production sidecar setup with YAML policies
+- [CLI Reference](../api/cli.md) for all 16 commands
+- [Registry API](../api/registry.md) for the full REST API
+- [Python SDK](../api/python-sdk.md) for programmatic integration

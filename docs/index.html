@@ -467,22 +467,22 @@ code{font-family:var(--font-mono);font-size:13px}
       <div class="pillar">
         <div class="pillar-icon">&#128272;</div>
         <h3>Identity Binding</h3>
-        <p>Every agent gets a JWS token cryptographically bound to the human who created it. No anonymous agents. No orphaned sessions. Full chain of custody from human to tool call.</p>
+        <p>Every agent gets an Ed25519 JWS token bound to an OIDC-verified human (Okta, Entra ID, Google). SCIM deprovisioning auto-revokes when users leave. Multi-tenancy isolates organizations.</p>
       </div>
       <div class="pillar">
         <div class="pillar-icon">&#128279;</div>
         <h3>Delegation Chains</h3>
-        <p>Agents delegate to sub-agents with permission narrowing. Scope can only decrease, never increase. Depth limits prevent unbounded chains. This is how trust actually flows.</p>
+        <p>Agents delegate to sub-agents with mandatory permission narrowing. Three-way scope intersection ensures least privilege. Cascade revocation kills entire trust subtrees instantly.</p>
       </div>
       <div class="pillar">
         <div class="pillar-icon">&#128737;</div>
-        <h3>Runtime Enforcement</h3>
-        <p>A sidecar proxy intercepts every MCP tool call. Token validation, scope checking, and 3-way permission intersection happen before any tool executes. Unauthorized calls are blocked.</p>
+        <h3>Policy Engine + Enforcement</h3>
+        <p>MCP sidecar (stdio + HTTP) with YAML policy engine: glob patterns, argument regex, time windows, depth limits. Approval queue for sensitive ops. OTel spans and Prometheus metrics.</p>
       </div>
       <div class="pillar">
         <div class="pillar-icon">&#128209;</div>
-        <h3>Audit Trail</h3>
-        <p>Merkle-chained event log of every delegation, every tool call, every scope change. Map directly to EU AI Act articles and SOC2 controls. Tamper-evident by construction.</p>
+        <h3>Compliance + Audit</h3>
+        <p>Complete audit trail with SIEM webhooks (Splunk, Datadog, Slack). Compliance reports for EU AI Act and SOC 2. Python SDK, 16-command CLI, Next.js dashboard with SSO and RBAC.</p>
       </div>
     </div>
   </section>
@@ -569,6 +569,20 @@ code{font-family:var(--font-mono);font-size:13px}
             <td><span class="badge badge-no">NO</span></td>
           </tr>
           <tr>
+            <td>YAML policy engine (glob, time, regex)</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>Approval queue for sensitive ops</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
             <td>MCP-native enforcement sidecar</td>
             <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
             <td><span class="badge badge-no">NO</span></td>
@@ -576,23 +590,44 @@ code{font-family:var(--font-mono);font-size:13px}
             <td><span class="badge badge-no">NO</span></td>
           </tr>
           <tr>
-            <td>Cascade revocation</td>
+            <td>Cascade revocation + SCIM deprov.</td>
             <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
             <td><span class="badge badge-partial">Partial</span></td>
             <td><span class="badge badge-no">NO</span></td>
             <td><span class="badge badge-no">NO</span></td>
           </tr>
           <tr>
-            <td>EU AI Act compliance mapping</td>
+            <td>OIDC SSO (Okta, Entra, Google)</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>Multi-tenancy</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>Compliance reports (EU AI Act, SOC 2)</td>
             <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
             <td><span class="badge badge-no">NO</span></td>
             <td><span class="badge badge-no">NO</span></td>
             <td><span class="badge badge-partial">Partial</span></td>
           </tr>
           <tr>
-            <td>Merkle-chained audit trail</td>
+            <td>SIEM webhooks</td>
             <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
-            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
+          </tr>
+          <tr>
+            <td>Python SDK + dashboard</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-yes">YES</span></td>
             <td><span class="badge badge-no">NO</span></td>
             <td><span class="badge badge-no">NO</span></td>
           </tr>
@@ -624,7 +659,7 @@ code{font-family:var(--font-mono);font-size:13px}
 
   <!-- ====== FOOTER ====== -->
   <footer class="footer">
-    <div>&copy; 2025 Eigent. Apache 2.0 License.</div>
+    <div>&copy; 2025-2026 Eigent. Apache 2.0 License.</div>
     <div class="footer-links">
       <a href="https://github.com/AgenTrust-AI/eigent" target="_blank">GitHub</a>
       <a href="api.html">API</a>

@@ -3,7 +3,7 @@
   <br />
   <strong>E I G E N T</strong>
   <br />
-  <em>Find every shadow AI agent. Before attackers do.</em>
+  <em>OAuth for AI Agents</em>
 </p>
 
 <p align="center">
@@ -17,10 +17,10 @@
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#how-it-works">How It Works</a> &bull;
   <a href="#features">Features</a> &bull;
-  <a href="#why-eigent">Why Eigent?</a> &bull;
-  <a href="#cicd-integration">CI/CD</a> &bull;
   <a href="#architecture">Architecture</a> &bull;
+  <a href="#comparison">Comparison</a> &bull;
   <a href="https://eigent.dev">Website</a>
 </p>
 
@@ -28,82 +28,73 @@
 
 ## What is Eigent?
 
-**Eigent** is an open-source security scanner that discovers AI agents, MCP servers, and LLM-powered tools running in your environment -- then flags the security risks nobody is watching. Think of it as **Trivy for AI agents**: one command, full visibility, zero config.
+**Eigent** is the identity and governance layer for AI agents -- **OAuth for AI Agents**. It provides cryptographic proof that every agent action traces back to the human who authorized it, with delegation chains that narrow permissions at every hop and cascade revocation that instantly kills an entire trust subtree.
+
+**The problem:** AI agents operate with broad, unmonitored access. They call tools, spawn sub-agents, and access sensitive resources with no identity, no audit trail, and no way to trace actions back to the responsible human.
+
+**The solution:** Eigent binds every agent to a human through Ed25519-signed JWS tokens. Agents delegate to sub-agents with mandatory permission narrowing. A sidecar proxy enforces permissions on every MCP tool call. Revoking a parent agent instantly revokes the entire delegation subtree.
+
+---
+
+## How It Works
+
+```
+  Human authenticates       Issues token         Delegates with        Sidecar enforces
+  via OIDC (Okta/          to Agent A           narrowed scope        every tool call
+  Entra/Google)            [read,write,test]    to Agent B [test]     against token scope
+
+  +---------+    eigent    +---------+  eigent  +---------+           +---------+
+  |  Alice  | -- login --> | Agent A | delegate | Agent B | -- MCP -> | Sidecar | -> MCP Server
+  +---------+    issue     +---------+          +---------+           +---------+
+                                                                          |
+  eigent revoke Agent A                                              Verify against
+  -> cascades to Agent B                                              Registry + Policy
+  -> all tokens invalidated                                           Engine (YAML)
+```
 
 ---
 
 ## Quick Start
 
-Three commands. Zero to findings in under 30 seconds.
+### Option 1: Docker Compose (recommended)
+
+One command to run the full stack -- registry, sidecar, dashboard, and a demo MCP server:
 
 ```bash
-pip install eigent-scan            # Install
-eigent-scan scan --verbose         # Discover agents + flag risks
-eigent-scan scan --output html     # Generate a shareable report
+git clone https://github.com/saichandrasekhar/Eigent.git
+cd Eigent
+docker compose up
 ```
 
-<details>
-<summary><strong>See it in action</strong></summary>
+Then in another terminal:
 
-```
-$ eigent-scan scan --verbose
-
-  ╔══════════════════════════════════════════╗
-  ║  Eigent Scan  v0.1.0                    ║
-  ║  Discover AI agents. Expose risks.      ║
-  ╚══════════════════════════════════════════╝
-
-  Scanning ███████████████████████████ 14 locations
-
-  ┌─── Scan Summary ─────────────────────────┐
-  │  Targets scanned:    mcp, process        │
-  │  Agents discovered:  7                   │
-  │  Security findings:  12                  │
-  │    Critical:  3  ██████                  │
-  │    High:      4  ████████               │
-  │    Medium:    5  ██████████             │
-  │  Overall risk:  CRITICAL                 │
-  │  Scan duration: 0.08s                    │
-  └──────────────────────────────────────────┘
-
-  ┌─── Discovered AI Agents / MCP Servers ───┐
-  │ #  Name         Transport  Auth          │
-  │ 1  filesystem   stdio      NONE    [!!]  │
-  │ 2  shell        stdio      NONE    [!!]  │
-  │ 3  postgres     stdio      API Key       │
-  │ 4  playwright   stdio      NONE    [!]   │
-  │ 5  my-api       sse        NONE    [!]   │
-  │ 6  bedrock-agent process   IAM           │
-  │ 7  openai-fn    process    NONE    [!!]  │
-  └──────────────────────────────────────────┘
-
-  FINDINGS
-
-  [!!] CRITICAL  filesystem — broad system access, no auth
-       MCP server has unrestricted read/write to the filesystem.
-       No authentication mechanism configured.
-
-  [!!] CRITICAL  shell — arbitrary command execution
-       MCP server can execute shell commands with the
-       permissions of the current user.
-
-  [!]  HIGH  my-api — unauthenticated SSE endpoint
-       Network-accessible MCP server with no auth.
-       Any process on the network can invoke tools.
-
-  [~]  MEDIUM  postgres — secrets in environment variables
-       POSTGRES_PASSWORD passed via env. Use a secret
-       manager instead.
-
-  ── Recommendations ────────────────────────
-  1. Restrict filesystem/shell tool permissions to allowlists
-  2. Add OAuth 2.0 or API key auth to SSE-transport servers
-  3. Move secrets from env vars to a vault
-  4. Export: eigent-scan scan --output sarif
-  5. Re-run in CI to detect drift
+```bash
+npm install -g @eigent/cli
+eigent init
+eigent login -e alice@company.com
+eigent issue code-agent --scope read_file,write_file,run_tests
+eigent delegate code-agent test-runner --scope run_tests
+eigent verify test-runner run_tests     # ALLOWED
+eigent verify test-runner delete_file   # DENIED
 ```
 
-</details>
+### Option 2: npm
+
+```bash
+npm install -g @eigent/cli
+cd eigent-registry && npm install && npm run dev   # start registry
+eigent init && eigent login -e alice@company.com
+eigent issue code-agent --scope read_file,write_file,run_tests
+```
+
+### Option 3: Free scanner (no setup)
+
+Discover every AI agent and MCP server in your environment in 30 seconds:
+
+```bash
+pip install eigent-scan
+eigent-scan scan --verbose
+```
 
 ---
 
@@ -113,56 +104,56 @@ $ eigent-scan scan --verbose
 <tr>
 <td width="50%">
 
-### :mag: MCP Config Scanner
-Scans **14 config locations** across Claude Desktop, Cursor, VS Code, Windsurf, and project files. Runs **6 security checks** per server (auth, permissions, supply chain, secrets, drift, file permissions).
+### Cryptographic Identity (eigent-core)
+Ed25519 JWS tokens bind every agent to the human who authorized it. Self-verifiable, tamper-proof. Delegation with scope intersection ensures permissions can only narrow, never widen. 76 tests.
 
 </td>
 <td width="50%">
 
-### :ghost: Live Process Discovery
-Detects **shadow AI agents** -- processes with LLM connections that never appeared in any config. Finds what your team forgot to tell you about.
+### Identity Registry (eigent-registry)
+Hono-based API server with OIDC authentication (Okta, Entra ID, Google), SCIM deprovisioning, cascade revocation, multi-tenancy, API versioning, OpenAPI spec, rate limiting, health checks, and PostgreSQL adapter with AES-256-GCM encryption at rest.
 
 </td>
 </tr>
 <tr>
 <td>
 
-### :page_facing_up: HTML & PDF Reports
-Generate **board-ready reports** with risk scores, compliance mapping (EU AI Act, SOC 2, ISO 27001), and remediation priorities. Share with auditors, not just engineers.
+### MCP Enforcement Sidecar (eigent-sidecar)
+Intercepts stdio and HTTP MCP traffic. YAML policy engine with glob patterns, delegation depth limits, time windows, and argument regex. Approval queue polling for sensitive operations. OTel spans and Prometheus metrics. Hot-reloadable policies.
 
 </td>
 <td>
 
-### :link: SARIF Output
-Findings flow directly into the **GitHub Security tab**. Works with any SARIF-compatible tool: GitHub Advanced Security, Azure DevOps, VS Code SARIF Viewer.
-
-</td>
-</tr>
-<tr>
-<td>
-
-### :gear: CI/CD Integration
-Ship a **GitHub Action** out of the box. Gate merges on agent security posture. Works with GitLab CI, Jenkins, CircleCI, and any CI that runs `pip install`.
-
-</td>
-<td>
-
-### :bell: Webhook Alerts
-Send findings to **Slack**, **PagerDuty**, **Microsoft Teams**, or any webhook endpoint. Get notified when a new unprotected agent appears.
+### CLI (eigent-cli)
+16 commands: `init`, `login`, `issue`, `delegate`, `revoke`, `verify`, `chain`, `wrap`, `audit`, `rotate`, `deprovision`, `stale`, `usage`, `compliance-report`, `list`, `logout`. Full lifecycle management from a single binary.
 
 </td>
 </tr>
 <tr>
 <td>
 
-### :chart_with_upwards_trend: Scan History & Drift Detection
-Track your agent inventory over time. Get alerted when configs change, new servers appear, or security posture degrades between scans.
+### Python SDK (eigent-py)
+`EigentClient` for agent registration, delegation, verification, revocation, audit, and compliance reporting. `@eigent_protected` decorator for tool-level enforcement. LangChain and CrewAI integration examples.
 
 </td>
 <td>
 
-### :satellite: OTel Sidecar
-Lightweight MCP traffic interceptor that exports **OpenTelemetry spans** for every tool call. Real-time telemetry without modifying your agents.
+### Dashboard (eigent-dashboard)
+Next.js with 6 pages: overview dashboard, agent inventory, delegation tree visualization, audit log, policy editor, and compliance reports. NextAuth SSO with RBAC (admin, operator, viewer roles).
+
+</td>
+</tr>
+<tr>
+<td>
+
+### Agent Scanner (eigent-scan)
+Scans 14 config locations across Claude Desktop, Cursor, VS Code, and Windsurf. Live process discovery for shadow agents. HTML reports, SARIF for GitHub Security tab, CI/CD integration, and webhook alerts.
+
+</td>
+<td>
+
+### Deployment (Helm + Terraform)
+Kubernetes Helm chart and Terraform modules for production deployment. Docker Compose for local development with one command.
 
 </td>
 </tr>
@@ -170,41 +161,95 @@ Lightweight MCP traffic interceptor that exports **OpenTelemetry spans** for eve
 
 ---
 
-## Why Eigent?
+## Architecture
 
-AI agents are the **fastest-growing unmanaged attack surface** in the enterprise.
-
-| | |
-|---|---|
-| **88%** of organizations had an AI agent security incident last year | Source: industry reports, 2025 |
-| Only **21%** of security teams know which AI agents are running | The rest are flying blind |
-| Shadow AI breaches cost **$670K more** than standard incidents | Longer dwell time, broader blast radius |
-
-Your developers are installing MCP servers with filesystem access, shell execution, and database credentials -- with **zero authentication** and **zero monitoring**. `eigent-scan` finds them all in seconds.
+```
+                            +-----------------+
+                            |   Dashboard     |
+                            |  (Next.js SSO)  |
+                            +--------+--------+
+                                     |
+                                     v
++----------+    REST API    +------------------+    OIDC     +-----------+
+| Eigent   | <-----------> |  Eigent Registry  | <--------> | Okta /    |
+| CLI      |               |  (Hono API)       |            | Entra /   |
+| (16 cmds)|               |                   |            | Google    |
++----------+               | - Agent lifecycle |            +-----------+
+     |                      | - Delegation mgmt|
+     | spawns               | - Cascade revoke |    +-----------+
+     v                      | - SCIM deprov.   | -> | PostgreSQL|
++----------+    verify     | - Compliance rpts |    +-----------+
+| Eigent   | <-----------> | - Approval queue  |
+| Sidecar  |               | - SIEM webhooks   |
+| (MCP     |               | - Multi-tenancy   |
+|  proxy)  |               +------------------+
+|          |
+| - stdio  |               +------------------+
+| - HTTP   |               |   Python SDK     |
+| - YAML   | <--- MCP ---> |  (eigent-py)     |
+|   policy |               |  EigentClient +  |
+| - OTel   |               |  @eigent_protect |
+| - Prom.  |               +------------------+
++----------+
+     |
+     v
++----------+               +------------------+
+| MCP      |               |   eigent-scan    |
+| Server   |               |  (free scanner)  |
++----------+               |  14 config locs  |
+                            |  shadow agents   |
+                            |  SARIF + HTML    |
+                            +------------------+
+```
 
 ---
 
 ## How Eigent Compares
 
-| Capability | **Eigent** | Astrix Security | Okta NHI | DIY (OPA + ELK) |
+| Capability | **Eigent** | Okta / Entra ID | Aembit | Astrix |
 |---|:---:|:---:|:---:|:---:|
-| MCP server discovery | :white_check_mark: | :x: | :x: | :x: |
-| Shadow agent detection | :white_check_mark: | Partial | :x: | Manual |
-| Security risk analysis | :white_check_mark: | :white_check_mark: | Limited | Manual |
-| SARIF / GitHub Security | :white_check_mark: | :x: | :x: | :x: |
-| CI/CD gate (GitHub Action) | :white_check_mark: | :x: | :x: | Custom |
-| OTel telemetry sidecar | :white_check_mark: | :x: | :x: | Custom |
-| Open source | :white_check_mark: | :x: | :x: | :white_check_mark: |
-| Setup time | **30 seconds** | Weeks | Weeks | Months |
-| Price | **Free** | $$$$$ | $$$$$ | Engineering time |
+| Human-to-agent identity binding | Yes | No | No | Partial |
+| Agent-to-agent delegation chains | Yes | No | No | No |
+| Permission narrowing at each hop | Yes | No | No | No |
+| Cascade revocation | Yes | Partial | No | No |
+| MCP-native enforcement sidecar | Yes | No | Partial | No |
+| YAML policy engine (glob, time, regex) | Yes | No | No | No |
+| Approval queue for sensitive ops | Yes | No | No | No |
+| OIDC SSO (Okta, Entra, Google) | Yes | Yes | Yes | No |
+| SCIM deprovisioning | Yes | Yes | No | No |
+| Multi-tenancy | Yes | Yes | Yes | No |
+| Compliance reports (EU AI Act, SOC 2) | Yes | No | No | Partial |
+| SIEM webhooks | Yes | Yes | Yes | Yes |
+| Python SDK | Yes | Yes | No | No |
+| MCP server discovery + scanning | Yes | No | No | Partial |
+| Open source | Yes | No | No | No |
+| Setup time | **5 minutes** | Weeks | Weeks | Weeks |
+| Price | **Free** | $$$$$ | $$$$$ | $$$$$ |
+
+---
+
+## Project Structure
+
+```
+eigent-core/               # Ed25519 crypto, JWS tokens, delegation, scope intersection
+eigent-registry/           # Hono API server — OIDC, SCIM, multi-tenancy, PostgreSQL
+eigent-sidecar/            # MCP interceptor — stdio + HTTP, YAML policy, OTel, Prometheus
+eigent-cli/                # 16 CLI commands for full lifecycle management
+eigent-py/                 # Python SDK — EigentClient + @eigent_protected decorator
+eigent-scan/               # Python scanner — config scan, shadow agents, SARIF, HTML
+eigent-dashboard/          # Next.js — 6 pages, SSO, RBAC
+deploy/helm/               # Kubernetes Helm chart
+deploy/terraform/          # Terraform IaC modules
+docker-compose.yml         # One-command local stack
+```
 
 ---
 
 ## CI/CD Integration
 
-### GitHub Action (recommended)
+### GitHub Action
 
-Findings automatically appear in the **Security** tab via SARIF upload.
+Scan for unprotected AI agents and push findings to the Security tab:
 
 ```yaml
 name: AI Agent Security Scan
@@ -223,98 +268,36 @@ jobs:
       - name: Scan for AI agents
         uses: saichandrasekhar/Eigent/eigent-scan@main
         with:
-          target: all             # mcp, process, or all
-          fail-on: high           # critical, high, medium, low, none
-          upload-sarif: true      # Push to GitHub Security tab
-```
-
-<details>
-<summary>GitLab CI / Jenkins</summary>
-
-```yaml
-# GitLab CI
-security-scan:
-  stage: test
-  script:
-    - pip install eigent-scan
-    - eigent-scan scan --output sarif --fail-on high > gl-eigent-results.sarif
-  artifacts:
-    reports:
-      sast: gl-eigent-results.sarif
-```
-
-```bash
-# Jenkins (shell step)
-pip install eigent-scan
-eigent-scan scan --output sarif --fail-on high > results.sarif
-```
-
-</details>
-
----
-
-## Architecture
-
-```
-                        ┌──────────────────────────────────┐
-                        │         Your Environment         │
-                        │                                  │
-  ┌─────────────┐       │   ┌───────────┐  ┌───────────┐  │
-  │ eigent-scan │──────▶│   │ MCP       │  │ Shadow    │  │
-  │   (CLI)     │ read  │   │ Configs   │  │ Processes │  │
-  └──────┬──────┘ only  │   └───────────┘  └───────────┘  │
-         │              └──────────────────────────────────┘
-         │
-         ▼
-  ┌──────────────┐       ┌──────────────┐
-  │   Findings   │       │   Sidecar    │
-  │              │       │              │
-  │ - Table/JSON │       │ MCP Client   │
-  │ - HTML/PDF   │       │   ↕ [tap]    │
-  │ - SARIF      │──┐    │ MCP Server   │
-  └──────────────┘  │    └──────┬───────┘
-                    │           │
-         ┌──────────┘           │  OTel spans
-         ▼                      ▼
-  ┌──────────────┐       ┌──────────────┐
-  │   GitHub     │       │   Eigent     │
-  │   Security   │       │   Platform   │
-  │   Tab        │       │              │
-  └──────────────┘       │ - Identity   │
-                         │ - Audit Log  │
-  ┌──────────────┐       │ - Compliance │
-  │  Webhooks    │       │ - Dashboard  │
-  │ Slack/PD/etc │       │ - Alerting   │
-  └──────────────┘       └──────────────┘
-```
-
----
-
-## Project Structure
-
-```
-eigent-scan/            # Python CLI scanner (PyPI: eigent-scan)
-eigent-sidecar/         # TypeScript MCP sidecar (npm: eigent-sidecar)
-otel-mcp-convention/    # OpenTelemetry semantic convention for MCP (draft)
-docs/                   # Documentation
+          target: all
+          fail-on: high
+          upload-sarif: true
 ```
 
 ---
 
 ## Contributing
 
-We welcome contributions of all kinds: bug reports, feature requests, docs, and code.
-
 ```bash
 git clone https://github.com/saichandrasekhar/Eigent.git
-cd Eigent/eigent-scan
-pip install -e ".[dev]"
-pytest
+cd Eigent
+
+# Core library
+cd eigent-core && npm install && npm test    # 76 tests
+
+# Registry
+cd eigent-registry && npm install && npm run dev
+
+# CLI
+cd eigent-cli && npm install && npm link
+
+# Python SDK
+cd eigent-py && pip install -e ".[dev]" && pytest
+
+# Scanner
+cd eigent-scan && pip install -e ".[dev]" && pytest
 ```
 
 See [CONTRIBUTING.md](eigent-scan/CONTRIBUTING.md) for full guidelines.
-
-**Good first issues** are tagged with [`good first issue`](https://github.com/saichandrasekhar/Eigent/labels/good%20first%20issue).
 
 ---
 
@@ -322,7 +305,7 @@ See [CONTRIBUTING.md](eigent-scan/CONTRIBUTING.md) for full guidelines.
 
 - **Discussions** -- [GitHub Discussions](https://github.com/saichandrasekhar/Eigent/discussions) for questions and ideas
 - **Issues** -- [GitHub Issues](https://github.com/saichandrasekhar/Eigent/issues) for bugs and feature requests
-- **Discord** -- [Join our Discord](https://discord.gg/eigent) (coming soon)
+- **Discord** -- [Join our Discord](https://discord.gg/eigent)
 - **Twitter** -- [@eigent_dev](https://twitter.com/eigent_dev)
 
 ---
@@ -334,7 +317,7 @@ See [CONTRIBUTING.md](eigent-scan/CONTRIBUTING.md) for full guidelines.
 ---
 
 <p align="center">
-  <strong>You can't secure what you can't see.</strong>
+  <strong>Every agent needs a human. Every action needs a chain of custody.</strong>
   <br />
   <a href="https://eigent.dev">eigent.dev</a> &bull; <a href="https://pypi.org/project/eigent-scan/">PyPI</a> &bull; <a href="https://github.com/saichandrasekhar/Eigent/issues">Report a Bug</a>
   <br /><br />

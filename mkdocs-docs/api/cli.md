@@ -1,6 +1,6 @@
 # CLI Reference
 
-The Eigent CLI (`eigent`) is the primary interface for managing agent identities. It handles authentication, token issuance, delegation, revocation, verification, and audit log queries.
+The Eigent CLI (`eigent`) provides 16 commands for complete agent lifecycle management -- from authentication and token issuance through delegation, enforcement, rotation, compliance reporting, and deprovisioning.
 
 **Installation:**
 
@@ -61,12 +61,9 @@ eigent login -e alice@company.com
 
 **What it does:**
 
-1. Authenticates via OIDC (simulated in development)
+1. Authenticates via OIDC (Okta, Entra ID, or Google in production; simulated in development)
 2. Stores session in `~/.eigent/session.json`
 3. The session includes `sub`, `email`, `iss`, and `token`
-
-!!! info "Production OIDC"
-    In production, `eigent login` redirects to your corporate identity provider (Okta, Auth0, Azure AD). The development mode simulates this flow.
 
 ---
 
@@ -102,19 +99,6 @@ eigent issue code-agent \
 eigent issue admin-agent --scope "*" --max-depth 5
 ```
 
-**Output:**
-
-```
-✔ Token issued.
-
-  Agent        code-agent
-  ID           019746a2-3f8b-7d4e-a1c5-9b3d2e7f0a1b
-  Scope        read_file, write_file, run_tests
-  Depth        0 / 3
-  Expires      2026-03-31T15:00:00.000Z
-  Token        ~/.eigent/tokens/code-agent.jwt
-```
-
 **Requires:** Active session (`eigent login`) and initialized project (`eigent init`).
 
 ---
@@ -139,22 +123,8 @@ eigent delegate <parent-agent> <child-agent> [options]
 # Delegate specific tools
 eigent delegate code-agent test-runner --scope run_tests
 
-# Delegate with TTL
-eigent delegate code-agent test-runner --scope run_tests --ttl 1800
-
 # Multiple scopes
 eigent delegate orchestrator qa-agent --scope test,lint,coverage
-```
-
-**Output:**
-
-```
-✔ Delegation successful.
-
-  Child Agent    test-runner
-  Granted Scope  run_tests
-  Depth          1
-  Token          ~/.eigent/tokens/test-runner.jwt
 ```
 
 !!! warning "Denied scopes"
@@ -173,27 +143,8 @@ eigent verify <agent-name> <tool-name>
 **Examples:**
 
 ```bash
-eigent verify code-agent read_file
-eigent verify test-runner write_file
-```
-
-**Output (Allowed):**
-
-```
-  ALLOWED  code-agent → read_file
-  Agent code-agent is authorized to call read_file
-  Scope: read_file, write_file, run_tests
-  Human: alice@company.com
-  Chain: alice@company.com → code-agent
-```
-
-**Output (Denied):**
-
-```
-  DENIED  test-runner → write_file
-  Agent test-runner is NOT authorized to call write_file
-  Scope: run_tests
-  Reason: Tool "write_file" is not in agent scope: [run_tests]
+eigent verify code-agent read_file      # ALLOWED
+eigent verify test-runner write_file    # DENIED
 ```
 
 ---
@@ -212,17 +163,7 @@ eigent revoke <agent-name>
 eigent revoke code-agent
 ```
 
-**Output:**
-
-```
-✔ Agent revoked.
-
-  Revoked        code-agent
-  Cascade        test-runner, file-reader
-  Total Revoked  3
-```
-
-This operation is immediate and irreversible. The local token files are also cleaned up.
+This operation is immediate and irreversible. All descendant agents in the delegation subtree are also revoked. Local token files are cleaned up.
 
 ---
 
@@ -243,17 +184,6 @@ eigent list [options]
 ```bash
 eigent list
 eigent list --all
-```
-
-**Output:**
-
-```
-  Agents (3)
-
-  NAME           SCOPE                      DEPTH  STATUS   HUMAN
-  code-agent     read_file, write_file, ... 0/3    active   alice@company.com
-  test-runner    run_tests                  1/3    active   alice@company.com
-  file-reader    read_file                  2/3    active   alice@company.com
 ```
 
 ---
@@ -278,16 +208,16 @@ eigent chain file-reader
   Delegation Chain
 
   alice@company.com (human)
-    └── code-agent [read_file, write_file, run_tests] (depth 0)
-          └── test-runner [run_tests] (depth 1)
-                └── file-reader [read_file] (depth 2)
+    +-- code-agent [read_file, write_file, run_tests] (depth 0)
+          +-- test-runner [run_tests] (depth 1)
+                +-- file-reader [read_file] (depth 2)
 ```
 
 ---
 
 ## eigent wrap
 
-Wrap an MCP server with the Eigent enforcing sidecar. This launches the sidecar as a transparent proxy between the AI agent and the MCP server.
+Wrap an MCP server with the Eigent enforcing sidecar.
 
 ```bash
 eigent wrap <command> [args...] [options]
@@ -308,8 +238,6 @@ eigent wrap npx -y @modelcontextprotocol/server-filesystem /tmp \
 eigent wrap python my_mcp_server.py --agent db-agent
 ```
 
-The sidecar inherits the current environment and adds `EIGENT_TOKEN` and `EIGENT_REGISTRY_URL` environment variables.
-
 ---
 
 ## eigent audit
@@ -322,62 +250,161 @@ eigent audit [options]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-a, --agent <name>` | — | Filter by agent name |
-| `-u, --human <email>` | — | Filter by human email |
-| `--action <type>` | — | Filter by action type |
+| `-a, --agent <name>` | -- | Filter by agent name |
+| `-u, --human <email>` | -- | Filter by human email |
+| `--action <type>` | -- | Filter by action type |
 | `-l, --limit <count>` | `25` | Maximum entries to return |
 
 **Examples:**
 
 ```bash
-# Recent events
 eigent audit
-
-# Blocked calls only
 eigent audit --action tool_call_blocked
-
-# Events for a specific agent
 eigent audit --agent code-agent --limit 50
-
-# Events by human
 eigent audit --human alice@company.com
-```
-
-**Output:**
-
-```
-  Audit Log (42 total)
-
-  TIME                 AGENT         ACTION              TOOL         HUMAN
-  2026-03-31 14:00:01  code-agent    issued              —            alice@company.com
-  2026-03-31 14:00:05  test-runner   delegated           —            alice@company.com
-  2026-03-31 14:00:12  code-agent    tool_call_allowed   read_file    alice@company.com
-  2026-03-31 14:00:15  test-runner   tool_call_blocked   write_file   alice@company.com
 ```
 
 ---
 
-## eigent status
+## eigent rotate
 
-Show the current Eigent configuration and connection status.
+Rotate an agent's cryptographic keys. Issues a new token and invalidates the old one. Use this for scheduled key rotation or after a suspected compromise.
 
 ```bash
-eigent status
+eigent rotate <agent-name>
+```
+
+**Example:**
+
+```bash
+eigent rotate code-agent
 ```
 
 **Output:**
 
 ```
-  ╔══════════════════════════════════════╗
-  ║          E I G E N T                ║
-  ╚══════════════════════════════════════╝
+  Key rotated.
 
-  Project     initialized
-  Registry    http://localhost:3456
-  Session     alice@company.com
-  Tokens      code-agent, test-runner
+  Agent        code-agent
+  New Token    ~/.eigent/tokens/code-agent.jwt
+  Rotated At   2026-03-31T15:00:00.000Z
+```
 
-  Registry: reachable
+---
+
+## eigent deprovision
+
+Deprovision a user and revoke all agents they authorized. This integrates with SCIM lifecycle events from your IdP.
+
+```bash
+eigent deprovision <email>
+```
+
+**Example:**
+
+```bash
+eigent deprovision alice@company.com
+```
+
+**Output:**
+
+```
+  Deprovisioned alice@company.com
+
+  Agents revoked:      5
+  Cascade revoked:     12
+  Total revoked:       17
+```
+
+---
+
+## eigent stale
+
+Find agents that have not sent a heartbeat within the configured threshold.
+
+```bash
+eigent stale [options]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--threshold <minutes>` | `60` | Minutes since last heartbeat |
+
+**Example:**
+
+```bash
+eigent stale
+eigent stale --threshold 30
+```
+
+**Output:**
+
+```
+  Stale Agents (3)
+
+  NAME           LAST HEARTBEAT       HUMAN
+  old-agent      2026-03-31 12:00     alice@company.com
+  test-bot       2026-03-31 11:30     bob@company.com
+  orphan-tool    never                carol@company.com
+```
+
+---
+
+## eigent usage
+
+Show usage statistics for agents -- tool call counts, delegation counts, and activity summaries.
+
+```bash
+eigent usage [options]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-a, --agent <name>` | -- | Filter by agent name |
+| `--period <period>` | `7d` | Time period: `1d`, `7d`, `30d`, `90d` |
+
+**Example:**
+
+```bash
+eigent usage
+eigent usage --agent code-agent --period 30d
+```
+
+---
+
+## eigent compliance-report
+
+Generate a compliance report mapping agent activity to a regulatory framework.
+
+```bash
+eigent compliance-report [options]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--framework <name>` | `eu-ai-act` | Framework: `eu-ai-act`, `soc2`, `iso27001` |
+| `--period <period>` | `30d` | Reporting period |
+| `--format <format>` | `table` | Output format: `table`, `json`, `pdf` |
+
+**Example:**
+
+```bash
+eigent compliance-report --framework eu-ai-act --period 30d
+eigent compliance-report --framework soc2 --format json
+```
+
+**Output:**
+
+```
+  Compliance Report: EU AI Act (30 days)
+
+  ARTICLE                         STATUS      EVIDENCE
+  Art. 14 - Human Oversight       PASS        47 agents bound to humans
+  Art. 15 - Accuracy              PASS        0 unauthorized delegations
+  Art. 52 - Transparency          PASS        Full audit trail, 1,234 events
+  Art. 9 - Risk Management        WARN        2 agents with broad scope
+
+  Score: 91.7% (11/12 controls passing)
 ```
 
 ---
@@ -388,12 +415,6 @@ Clear the current session.
 
 ```bash
 eigent logout
-```
-
-**Output:**
-
-```
-  Logged out. Session cleared.
 ```
 
 ---

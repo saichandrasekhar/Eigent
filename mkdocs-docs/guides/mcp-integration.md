@@ -1,6 +1,6 @@
 # MCP Server Integration
 
-The Eigent sidecar sits between your AI agent (the MCP client) and the MCP server, intercepting every tool call and verifying it against the agent's Eigent token before forwarding. This guide covers how the sidecar works, how to configure it, and how to handle blocked calls.
+The Eigent sidecar sits between your AI agent (the MCP client) and the MCP server, intercepting every tool call and verifying it against the agent's Eigent token and the YAML policy engine before forwarding. This guide covers the sidecar, YAML policies, approval queue, and production configuration.
 
 ## How the Sidecar Works
 
@@ -10,25 +10,30 @@ The sidecar is a transparent MCP proxy. It implements the MCP protocol on both s
 sequenceDiagram
     participant Agent as AI Agent (MCP Client)
     participant Sidecar as Eigent Sidecar
+    participant Policy as YAML Policy Engine
     participant Registry as Eigent Registry
     participant Server as MCP Server
 
     Agent->>Sidecar: tools/call (read_file)
-    Sidecar->>Registry: POST /api/verify (token, read_file)
+    Sidecar->>Sidecar: Token scope check
+    Sidecar->>Policy: Evaluate policy rules
+    Policy-->>Sidecar: allowed (args match regex)
+    Sidecar->>Registry: POST /api/v1/verify (token, read_file)
     Registry-->>Sidecar: { allowed: true }
     Sidecar->>Server: tools/call (read_file)
     Server-->>Sidecar: result
     Sidecar-->>Agent: result
 
-    Agent->>Sidecar: tools/call (shell_exec)
-    Sidecar->>Registry: POST /api/verify (token, shell_exec)
-    Registry-->>Sidecar: { allowed: false }
-    Sidecar-->>Agent: error: "Permission denied"
+    Agent->>Sidecar: tools/call (deploy_prod)
+    Sidecar->>Policy: Evaluate policy rules
+    Policy-->>Sidecar: require_approval
+    Sidecar->>Registry: POST approval request
+    Note over Sidecar: Polls approval queue...
+    Registry-->>Sidecar: approved
+    Sidecar->>Server: tools/call (deploy_prod)
 ```
 
-## Configuration
-
-### Basic Setup
+## Basic Setup
 
 ```bash
 # Install the sidecar
@@ -37,14 +42,14 @@ npm install -g @eigent/sidecar
 # Issue an agent token
 eigent issue my-agent --scope read_file,write_file --ttl 3600
 
-# Wrap an MCP server
+# Wrap an MCP server (stdio mode)
 eigent wrap npx -y @modelcontextprotocol/server-filesystem /tmp \
   --agent my-agent
 ```
 
-### Claude Desktop Configuration
+## Claude Desktop Configuration
 
-The sidecar integrates with Claude Desktop by replacing the direct MCP server command with a wrapped version.
+Replace the direct MCP server command with a wrapped version.
 
 **Before (unprotected):**
 
@@ -59,7 +64,7 @@ The sidecar integrates with Claude Desktop by replacing the direct MCP server co
 }
 ```
 
-**After (protected with Eigent):**
+**After (protected with Eigent + YAML policy):**
 
 ```json
 {
@@ -70,6 +75,7 @@ The sidecar integrates with Claude Desktop by replacing the direct MCP server co
         "--mode", "enforce",
         "--eigent-token-file", "~/.eigent/tokens/code-agent.jwt",
         "--registry-url", "http://localhost:3456",
+        "--policy-file", "~/.eigent/policies/filesystem.yaml",
         "--",
         "npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"
       ]
@@ -80,103 +86,182 @@ The sidecar integrates with Claude Desktop by replacing the direct MCP server co
 
 Everything before `--` configures the sidecar. Everything after `--` is the original MCP server command, passed through unchanged.
 
-## Operating Modes
+## HTTP Proxy Mode
 
-The sidecar supports two modes:
+For network-accessible MCP servers (SSE or HTTP transport), use HTTP proxy mode instead of stdio:
+
+```bash
+eigent-sidecar \
+  --transport http \
+  --listen-port 8080 \
+  --upstream-url http://mcp-server:3000 \
+  --eigent-token-file ~/.eigent/tokens/code-agent.jwt \
+  --policy-file ./eigent-policy.yaml
+```
+
+The sidecar listens on `http://localhost:8080` and proxies verified requests to the upstream server.
+
+## YAML Policy Engine
+
+Beyond token scopes, the policy engine provides fine-grained control with glob patterns, argument validation, time windows, and approval requirements. Policies hot-reload -- no restart required.
+
+### Example Policy
+
+```yaml
+# eigent-policy.yaml
+version: "1"
+
+policies:
+  # Allow file reads only within project directory
+  - tool: "read_file"
+    allow: true
+    conditions:
+      args:
+        path: "^/home/user/projects/.*"
+
+  # Block file writes outside business hours
+  - tool: "write_file"
+    allow: true
+    conditions:
+      time_window:
+        start: "09:00"
+        end: "18:00"
+        timezone: "America/New_York"
+
+  # Allow all database tools up to depth 2
+  - tool: "db:*"
+    allow: true
+    conditions:
+      max_delegation_depth: 2
+
+  # Block shell execution
+  - tool: "shell_exec"
+    allow: false
+
+  # Require approval for deployments
+  - tool: "deploy_*"
+    allow: true
+    require_approval: true
+
+defaults:
+  allow: false
+```
+
+### Policy Features
+
+| Feature | Description |
+|---------|-------------|
+| **Glob patterns** | Match tool names with `*` wildcards: `db:*`, `deploy_*` |
+| **Argument regex** | Validate arguments: `args.path: "^/safe/.*"` |
+| **Time windows** | Restrict by time: `09:00-18:00 America/New_York` |
+| **Depth limits** | Restrict by delegation depth: `max_delegation_depth: 2` |
+| **Approval required** | Route to approval queue: `require_approval: true` |
+| **Hot reload** | Changes to the YAML file take effect without restart |
+
+### Evaluation Order
+
+1. **Token scope check** -- is the tool in the agent's token scope?
+2. **Policy rule match** -- first matching rule in the YAML wins
+3. **Default policy** -- the `defaults.allow` value applies if no rule matches
+4. **Approval routing** -- if `require_approval: true`, hold and poll queue
+
+## Approval Queue
+
+For sensitive operations (production deploys, database mutations, etc.), the policy engine routes tool calls to the approval queue. The sidecar holds the call and polls the registry until a human operator approves or denies it.
+
+### Configuring Approval
+
+In your policy file:
+
+```yaml
+policies:
+  - tool: "deploy_*"
+    allow: true
+    require_approval: true
+```
+
+On the sidecar:
+
+```bash
+eigent-sidecar \
+  --policy-file ./eigent-policy.yaml \
+  --approval-poll-interval 3000 \
+  --eigent-token "$TOKEN" \
+  -- npx server-filesystem /tmp
+```
+
+### Approving Requests
+
+Operators can approve requests via the dashboard or the registry API:
+
+```bash
+# List pending approvals
+curl http://localhost:3456/api/v1/approvals
+
+# Approve
+curl -X POST http://localhost:3456/api/v1/approvals/apr-123/approve
+
+# Deny with reason
+curl -X POST http://localhost:3456/api/v1/approvals/apr-123/deny \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Not authorized for production deploy"}'
+```
+
+## Operating Modes
 
 ### Enforce Mode (Default)
 
-In enforce mode, the sidecar blocks tool calls that are not in the agent's scope. Blocked calls return an error to the client and are logged to the audit trail.
+Blocks tool calls that fail verification. Use in production.
 
 ```bash
 eigent-sidecar --mode enforce --eigent-token "$TOKEN" -- npx server-filesystem /tmp
 ```
 
-!!! danger "Use enforce mode in production"
-    Enforce mode is the only mode that actually prevents unauthorized tool calls. Monitor mode is for evaluation only.
-
 ### Monitor Mode
 
-In monitor mode, the sidecar allows all tool calls but logs whether each call would have been allowed or denied. Use this mode when evaluating Eigent before enforcing policies.
+Allows all calls but logs what would be blocked. Use for evaluation.
 
 ```bash
 eigent-sidecar --mode monitor --eigent-token "$TOKEN" -- npx server-filesystem /tmp
 ```
 
-Monitor mode produces the same audit trail as enforce mode, but with action `tool_call_would_block` instead of `tool_call_blocked`. This lets you review what would change before enabling enforcement.
-
-## Sidecar Configuration Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--mode` | `enforce` | `enforce` or `monitor` |
-| `--eigent-token` | — | Inline token string |
-| `--eigent-token-file` | — | Path to token file |
-| `--registry-url` | `http://localhost:3456` | Registry endpoint |
-| `--otel-endpoint` | — | OpenTelemetry collector URL |
-| `--otel-service-name` | `eigent-sidecar` | Service name for OTel spans |
-| `--log-level` | `info` | `debug`, `info`, `warn`, `error` |
-
-Environment variables are also supported:
-
-```bash
-export EIGENT_TOKEN="eyJ..."
-export EIGENT_REGISTRY_URL="http://localhost:3456"
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
-```
-
-## Handling Blocked Calls
-
-When a tool call is blocked in enforce mode, the sidecar returns an MCP error response:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": -32600,
-    "message": "Eigent: permission denied for tool 'shell_exec'. Agent scope: [read_file, write_file]. Contact alice@company.com to request access."
-  }
-}
-```
-
-The error message includes:
-
-- The tool that was denied
-- The agent's current scope
-- The human to contact for additional permissions
-
-This gives the AI agent enough context to inform the user or try an alternative approach rather than failing silently.
+Monitor mode produces the same audit trail as enforce mode, but with action `tool_call_would_block` instead of `tool_call_blocked`.
 
 ## OpenTelemetry Integration
 
-The sidecar exports OpenTelemetry spans for every tool call, providing real-time observability:
+Export spans for every tool call:
 
 ```bash
 eigent-sidecar \
-  --mode enforce \
-  --eigent-token-file ~/.eigent/tokens/code-agent.jwt \
   --otel-endpoint http://localhost:4318 \
+  --otel-service-name my-agent-sidecar \
+  --eigent-token "$TOKEN" \
   -- npx server-filesystem /tmp
 ```
 
-Each span includes:
+Each span includes tool name, agent ID, human email, authorization result, delegation depth, scope, policy rule matched, and mode.
 
-| Attribute | Example | Description |
-|-----------|---------|-------------|
-| `mcp.tool.name` | `read_file` | Tool being called |
-| `eigent.agent.id` | `019746a2-...` | Agent identifier |
-| `eigent.agent.name` | `code-agent` | Agent name |
-| `eigent.human.email` | `alice@company.com` | Authorizing human |
-| `eigent.action` | `allowed` / `blocked` | Authorization result |
-| `eigent.delegation.depth` | `1` | Current chain depth |
-| `eigent.scope` | `read_file,write_file` | Agent's scope |
+## Prometheus Metrics
 
-See [SIEM Integration](siem.md) for connecting these spans to Splunk, Datadog, or Jaeger.
+Expose metrics for Grafana dashboards:
+
+```bash
+eigent-sidecar \
+  --prometheus-port 9090 \
+  --eigent-token "$TOKEN" \
+  -- npx server-filesystem /tmp
+```
+
+Metrics available at `http://localhost:9090/metrics`:
+
+- `eigent_tool_calls_total` -- tool calls by tool, action, and agent
+- `eigent_tool_call_duration_seconds` -- latency histogram
+- `eigent_policy_evaluations_total` -- policy evaluations by result
+- `eigent_approval_queue_pending` -- pending approvals gauge
 
 ## Multiple MCP Servers
 
-For environments with multiple MCP servers, wrap each one with its own sidecar and token:
+Wrap each server with its own sidecar, token, and policy:
 
 ```json
 {
@@ -186,6 +271,7 @@ For environments with multiple MCP servers, wrap each one with its own sidecar a
       "args": [
         "--mode", "enforce",
         "--eigent-token-file", "~/.eigent/tokens/fs-agent.jwt",
+        "--policy-file", "~/.eigent/policies/filesystem.yaml",
         "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"
       ]
     },
@@ -194,6 +280,7 @@ For environments with multiple MCP servers, wrap each one with its own sidecar a
       "args": [
         "--mode", "enforce",
         "--eigent-token-file", "~/.eigent/tokens/db-agent.jwt",
+        "--policy-file", "~/.eigent/policies/database.yaml",
         "--", "npx", "-y", "@modelcontextprotocol/server-postgres"
       ]
     }
@@ -201,23 +288,18 @@ For environments with multiple MCP servers, wrap each one with its own sidecar a
 }
 ```
 
-Each server gets a separate agent token with its own scope. The filesystem agent cannot access the database, and the database agent cannot access the filesystem.
+Each server gets a separate agent token with its own scope and policy file.
 
 ## Troubleshooting
 
 ### Sidecar not found
 
 ```bash
-# Verify installation
 which eigent-sidecar
-
-# Install globally
 npm install -g @eigent/sidecar
 ```
 
 ### Token file not found
-
-Ensure you have issued a token and it has been saved:
 
 ```bash
 ls ~/.eigent/tokens/
@@ -226,17 +308,12 @@ eigent issue my-agent --scope read_file
 
 ### Registry unreachable
 
-The sidecar needs to contact the registry for verification. Check the registry is running:
-
 ```bash
-curl http://localhost:3456/api/health
+curl http://localhost:3456/api/v1/health
 ```
 
 ### All calls being blocked
 
-Check that the agent's scope matches the tool names used by the MCP server. Tool names are case-sensitive and must match exactly:
-
-```bash
-eigent verify my-agent read_file    # Check specific tools
-eigent list                          # See all agents and scopes
-```
+1. Check token scope: `eigent verify my-agent read_file`
+2. Check policy file for restrictive rules or `defaults.allow: false`
+3. Run with `--log-level debug` to see evaluation details
