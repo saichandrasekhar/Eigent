@@ -23,6 +23,7 @@ import {
   expireOldApprovals,
   insertOrganization,
   getOrganizationById,
+  getOrganizationBySlug,
   listOrganizations,
   updateOrganization,
   insertOrgMember,

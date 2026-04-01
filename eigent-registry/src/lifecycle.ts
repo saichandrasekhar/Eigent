@@ -132,9 +132,9 @@ export function runAutoExpiry(): ExpiryResult {
 
   // Find agents that are active but have expired tokens
   const expiredAgents = db.prepare(`
-    SELECT id, human_email, parent_id FROM agents
+    SELECT id, human_email, parent_id, org_id FROM agents
     WHERE status = 'active' AND expires_at <= ?
-  `).all(now) as Array<{ id: string; human_email: string; parent_id: string | null }>;
+  `).all(now) as Array<{ id: string; human_email: string; parent_id: string | null; org_id: string }>;
 
   const expiredIds: string[] = [];
   const cascadeExpiredIds: string[] = [];
@@ -220,6 +220,7 @@ export interface StaleAgent {
   last_seen_at: string | null;
   status: string;
   minutes_since_seen: number;
+  org_id: string;
 }
 
 export function findStaleAgents(thresholdMinutes?: number): StaleAgent[] {
@@ -230,7 +231,7 @@ export function findStaleAgents(thresholdMinutes?: number): StaleAgent[] {
   // Agents that are active but haven't been seen recently
   // Includes agents that have never sent a heartbeat (last_seen_at IS NULL)
   const rows = db.prepare(`
-    SELECT id, name, human_email, last_seen_at, status FROM agents
+    SELECT id, name, human_email, last_seen_at, status, org_id FROM agents
     WHERE status = 'active'
       AND (last_seen_at IS NULL OR last_seen_at <= ?)
   `).all(cutoff) as Array<{
@@ -239,6 +240,7 @@ export function findStaleAgents(thresholdMinutes?: number): StaleAgent[] {
     human_email: string;
     last_seen_at: string | null;
     status: string;
+    org_id: string;
   }>;
 
   const now = Date.now();
@@ -385,9 +387,9 @@ export function deprovisionHuman(email: string): HumanDeprovisionResult {
 
   // Find all agents belonging to this human
   const agents = db.prepare(`
-    SELECT id, name, status FROM agents
+    SELECT id, name, status, org_id FROM agents
     WHERE human_email = ? AND status NOT IN ('deprovisioned')
-  `).all(email) as Array<{ id: string; name: string; status: string }>;
+  `).all(email) as Array<{ id: string; name: string; status: string; org_id: string }>;
 
   if (agents.length === 0) {
     return {
