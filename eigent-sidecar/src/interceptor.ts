@@ -30,6 +30,8 @@ import {
 import { TelemetryManager, MCP_ATTR } from "./telemetry.js";
 import { TokenValidator, type EigentClaims } from "./auth.js";
 import { PolicyEnforcer, type EnforcementMode } from "./enforcer.js";
+import type { PolicyConfig } from "./policy.js";
+import { loadPolicy, watchPolicy } from "./policy-loader.js";
 
 // ── Options ────────────────────────────────────────────────────────────
 
@@ -53,6 +55,8 @@ export interface InterceptorOptions {
   eigentToken?: string;
   /** Registry URL for token validation and JWKS. */
   registryUrl?: string;
+  /** Path to YAML policy file. */
+  policyPath?: string;
 }
 
 // ── Interceptor ────────────────────────────────────────────────────────
@@ -78,6 +82,9 @@ export class McpInterceptor {
   /** Interval handle for the pending-span TTL reaper. */
   private reaperInterval: ReturnType<typeof setInterval> | null = null;
 
+  /** Cleanup function for the policy file watcher. */
+  private stopPolicyWatch: (() => void) | null = null;
+
   /** Maximum age (ms) for a pending span before it is reaped with a timeout error. */
   private static readonly SPAN_TTL_MS = 60_000;
 
@@ -96,7 +103,31 @@ export class McpInterceptor {
       registryUrl: options.registryUrl,
     });
 
-    this.enforcer = new PolicyEnforcer(this.mode, this.validator);
+    // Load YAML policy if configured
+    let policyConfig: PolicyConfig | undefined;
+    if (options.policyPath) {
+      try {
+        policyConfig = loadPolicy(options.policyPath);
+        this.log(`Loaded policy from ${options.policyPath} (${policyConfig.rules.length} rules)`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.log(`Failed to load policy: ${message}`);
+      }
+
+      // Watch for hot-reload
+      this.stopPolicyWatch = watchPolicy(options.policyPath, (config, error) => {
+        if (error) {
+          this.log(`Policy reload error: ${error.message}`);
+          return;
+        }
+        if (config) {
+          this.enforcer.updatePolicy(config);
+          this.log(`Policy hot-reloaded (${config.rules.length} rules)`);
+        }
+      });
+    }
+
+    this.enforcer = new PolicyEnforcer(this.mode, this.validator, policyConfig);
   }
 
   /**
@@ -315,6 +346,10 @@ export class McpInterceptor {
    * Gracefully stop the child process.
    */
   async stop(): Promise<void> {
+    if (this.stopPolicyWatch) {
+      this.stopPolicyWatch();
+      this.stopPolicyWatch = null;
+    }
     if (this.reaperInterval) {
       clearInterval(this.reaperInterval);
       this.reaperInterval = null;
@@ -408,13 +443,23 @@ export class McpInterceptor {
         // In monitor/permissive mode, evaluate policy and add span attributes
         // (async, fire-and-forget for telemetry only)
         if (toolName) {
+          const toolArgs = this.extractToolArgs(msg);
           this.resolveEigentClaims().then((claims) => {
-            const decision = this.enforcer.evaluate(claims, msg.method, toolName);
+            const decision = this.enforcer.evaluate(claims, msg.method, toolName, toolArgs);
 
             // Add enforcement attributes to the span
             const pending = this.pendingSpans.get(msg.id);
             if (pending) {
               pending.span.setAttribute(MCP_ATTR.EIGENT_DECISION, decision.action);
+              if (decision.policy_rule_name) {
+                pending.span.setAttribute("eigent.policy.rule_name", decision.policy_rule_name);
+              }
+              if (decision.policy_action) {
+                pending.span.setAttribute("eigent.policy.action", decision.policy_action);
+              }
+              if (decision.policy_reason) {
+                pending.span.setAttribute("eigent.policy.reason", decision.policy_reason);
+              }
               if (claims) {
                 this.setEigentSpanAttributes(pending.span, claims);
               }
@@ -461,11 +506,21 @@ export class McpInterceptor {
         if (toolName) attributes[MCP_ATTR.TOOL_NAME] = toolName;
 
         if (toolName) {
+          const toolArgs = this.extractToolArgs(msg);
           const claims = await this.resolveEigentClaims();
-          const decision = this.enforcer.evaluate(claims, msg.method, toolName);
+          const decision = this.enforcer.evaluate(claims, msg.method, toolName, toolArgs);
 
           // Start span with enforcement attributes
           attributes[MCP_ATTR.EIGENT_DECISION] = decision.action;
+          if (decision.policy_rule_name) {
+            attributes["eigent.policy.rule_name"] = decision.policy_rule_name;
+          }
+          if (decision.policy_action) {
+            attributes["eigent.policy.action"] = decision.policy_action;
+          }
+          if (decision.policy_reason) {
+            attributes["eigent.policy.reason"] = decision.policy_reason;
+          }
           if (claims) {
             attributes[MCP_ATTR.EIGENT_AGENT_ID] = claims.agent.name;
             attributes[MCP_ATTR.EIGENT_HUMAN_EMAIL] = claims.human.email;
@@ -502,6 +557,38 @@ export class McpInterceptor {
 
             // Return deny with no errorResponse so the hold-mode parser drops the message
             // (we already wrote the error to stdout ourselves)
+            return { action: "deny" };
+          }
+
+          if (decision.action === "require_approval") {
+            this.log(`[enforce] HELD for approval: ${decision.reason}`);
+
+            // Hold the request: wait up to 30 seconds for approval (future: webhook)
+            // For now, timeout with deny after 30 seconds
+            const span = this.telemetry.startRequestSpan(
+              msg.method,
+              msg.id,
+              attributes,
+            );
+
+            await new Promise((resolve) => setTimeout(resolve, 30_000));
+
+            this.telemetry.endSpan(span, {
+              code: -32001,
+              message: `Eigent: approval timeout. ${decision.reason}`,
+            });
+
+            this.log(`[enforce] DENIED (approval timeout): ${decision.reason}`);
+
+            const errorResponse = JSON.stringify({
+              jsonrpc: "2.0",
+              id: msg.id,
+              error: {
+                code: -32001,
+                message: `Eigent: approval timeout after 30s. ${decision.reason}`,
+              },
+            });
+            process.stdout.write(errorResponse + "\n");
             return { action: "deny" };
           }
         }
@@ -573,6 +660,19 @@ export class McpInterceptor {
       // Server-initiated notification (e.g., progress, log)
       this.telemetry.recordEvent(`server-notification/${msg.method}`);
     }
+  }
+
+  /**
+   * Extract tool call arguments from a JSON-RPC request.
+   */
+  private extractToolArgs(msg: { params?: Record<string, unknown> }): Record<string, unknown> | undefined {
+    const params = msg.params;
+    if (!params) return undefined;
+    const args = params["arguments"];
+    if (args && typeof args === "object" && !Array.isArray(args)) {
+      return args as Record<string, unknown>;
+    }
+    return undefined;
   }
 
   /**

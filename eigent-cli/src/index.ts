@@ -55,46 +55,159 @@ program
 
 program
   .command('login')
-  .description('Authenticate as a human operator (simulated OIDC)')
-  .option('-e, --email <email>', 'Email address (skip prompt)')
-  .action(async (opts: { email?: string }) => {
+  .description('Authenticate as a human operator')
+  .option('-e, --email <email>', 'Email address (skip prompt, demo mode)')
+  .option('--demo-mode', 'Use simulated authentication (no OIDC)')
+  .action(async (opts: { email?: string; demoMode?: boolean }) => {
     display.banner();
 
     try {
-      let email = opts.email;
+      if (opts.demoMode || opts.email) {
+        // Demo mode: prompt for email (original behavior)
+        let email = opts.email;
 
-      if (!email) {
-        email = await input({
-          message: 'Enter your email address:',
+        if (!email) {
+          email = await input({
+            message: 'Enter your email address:',
+            validate: (val: string) => {
+              if (!val.includes('@')) return 'Please enter a valid email address.';
+              return true;
+            },
+          });
+        }
+
+        const spinner = ora('Authenticating (demo mode)...').start();
+
+        const sub = `user-${Buffer.from(email).toString('base64url').slice(0, 12)}`;
+        const iss = 'https://eigent.dev/mock-idp';
+        const mockToken = Buffer.from(
+          JSON.stringify({ sub, email, iss, iat: Math.floor(Date.now() / 1000) })
+        ).toString('base64url');
+
+        config.saveSession({
+          email,
+          sub,
+          iss,
+          token: mockToken,
+          authenticatedAt: new Date().toISOString(),
+          verified: false,
+        });
+
+        spinner.succeed('Authenticated (demo mode).');
+        display.blank();
+        display.success(`Logged in as ${chalk.cyan.bold(email)} ${chalk.yellow('(unverified - demo mode)')}`);
+        display.info(`Session stored in ${chalk.gray('~/.eigent/session.json')}`);
+        display.blank();
+      } else {
+        // OIDC mode: initiate real authentication via the registry
+        const spinner = ora('Initiating OIDC authentication...').start();
+
+        const projectConfig = config.loadProjectConfig();
+        const registryUrl = projectConfig?.registryUrl ?? 'http://localhost:3456';
+
+        // Request authorization URL from the registry
+        const loginRes = await fetch(`${registryUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ redirect_uri: `${registryUrl}/api/auth/callback` }),
+        });
+
+        if (!loginRes.ok) {
+          const errorBody = await loginRes.json().catch(() => ({ error: 'Unknown error' })) as Record<string, unknown>;
+          spinner.fail('OIDC login initiation failed.');
+          display.error(String(errorBody.error ?? errorBody.message ?? 'Registry returned an error'));
+          display.info(`Tip: Use ${chalk.cyan('eigent login --demo-mode')} for development without OIDC.`);
+          process.exit(1);
+        }
+
+        const loginData = await loginRes.json() as {
+          authorization_url: string;
+          state: string;
+          provider: { type: string; issuer: string };
+        };
+
+        spinner.succeed('OIDC flow initiated.');
+        display.blank();
+        display.info(`Provider: ${chalk.cyan(loginData.provider.type)} (${chalk.gray(loginData.provider.issuer)})`);
+        display.blank();
+        display.info('Open this URL in your browser to authenticate:');
+        display.blank();
+        console.log(`  ${chalk.cyan.underline(loginData.authorization_url)}`);
+        display.blank();
+
+        // Try to open the browser automatically
+        const openCommand = process.platform === 'darwin' ? 'open'
+          : process.platform === 'win32' ? 'start'
+          : 'xdg-open';
+
+        try {
+          spawn(openCommand, [loginData.authorization_url], { detached: true, stdio: 'ignore' }).unref();
+          display.info(chalk.gray('(Browser opened automatically)'));
+        } catch {
+          display.info(chalk.gray('(Could not open browser automatically)'));
+        }
+
+        display.blank();
+
+        // Wait for the user to complete authentication
+        const authCode = await input({
+          message: 'Paste the authorization code from the callback:',
           validate: (val: string) => {
-            if (!val.includes('@')) return 'Please enter a valid email address.';
+            if (!val.trim()) return 'Authorization code is required.';
             return true;
           },
         });
+
+        const callbackSpinner = ora('Exchanging code for session...').start();
+
+        // Exchange the code via the registry callback endpoint
+        const callbackRes = await fetch(`${registryUrl}/api/auth/callback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: authCode.trim(),
+            state: loginData.state,
+          }),
+        });
+
+        if (!callbackRes.ok) {
+          const errorBody = await callbackRes.json().catch(() => ({ error: 'Unknown error' })) as Record<string, unknown>;
+          callbackSpinner.fail('Authentication failed.');
+          display.error(String(errorBody.error ?? errorBody.details ?? 'Token exchange failed'));
+          process.exit(1);
+        }
+
+        const sessionData = await callbackRes.json() as {
+          session_token: string;
+          human_email: string;
+          human_sub: string;
+          human_iss: string;
+          provider_type: string;
+          expires_at: string;
+          identity_verified: boolean;
+        };
+
+        config.saveSession({
+          email: sessionData.human_email,
+          sub: sessionData.human_sub,
+          iss: sessionData.human_iss,
+          token: sessionData.session_token,
+          authenticatedAt: new Date().toISOString(),
+          verified: true,
+          providerType: sessionData.provider_type,
+        });
+
+        callbackSpinner.succeed('Authenticated.');
+        display.blank();
+
+        const providerLabel = sessionData.provider_type.charAt(0).toUpperCase() + sessionData.provider_type.slice(1);
+        display.success(
+          `Authenticated as ${chalk.cyan.bold(sessionData.human_email)} via ${chalk.green(providerLabel)} ${chalk.green('(verified)')}`
+        );
+        display.info(`Session stored in ${chalk.gray('~/.eigent/session.json')}`);
+        display.info(`Session expires: ${chalk.gray(sessionData.expires_at)}`);
+        display.blank();
       }
-
-      const spinner = ora('Authenticating...').start();
-
-      // Simulate OIDC: in production this would redirect to an IdP
-      const sub = `user-${Buffer.from(email).toString('base64url').slice(0, 12)}`;
-      const iss = 'https://eigent.dev/mock-idp';
-      const mockToken = Buffer.from(
-        JSON.stringify({ sub, email, iss, iat: Math.floor(Date.now() / 1000) })
-      ).toString('base64url');
-
-      config.saveSession({
-        email,
-        sub,
-        iss,
-        token: mockToken,
-        authenticatedAt: new Date().toISOString(),
-      });
-
-      spinner.succeed('Authenticated.');
-      display.blank();
-      display.success(`Logged in as ${chalk.cyan.bold(email)}`);
-      display.info(`Session stored in ${chalk.gray('~/.eigent/session.json')}`);
-      display.blank();
     } catch (err: unknown) {
       display.error(err instanceof Error ? err.message : String(err));
       process.exit(1);
@@ -412,6 +525,278 @@ program
       display.auditTable(result.entries, result.total);
     } catch (err: unknown) {
       spinner.fail('Failed to fetch audit log.');
+      display.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+// ─── eigent compliance-report ───
+
+program
+  .command('compliance-report')
+  .description('Generate a compliance report (PDF-ready HTML)')
+  .option('-p, --period <period>', 'Reporting period (e.g. 30d, 7d, 90d)', '30d')
+  .option('-f, --framework <framework>', 'Framework: eu-ai-act, soc2, all', 'all')
+  .option('-o, --output <path>', 'Output file path', 'compliance-report.html')
+  .option('-u, --human <email>', 'Filter by human email')
+  .option('--agents <ids>', 'Comma-separated agent IDs (default: all)')
+  .option('--open', 'Open report in browser after generation')
+  .action(async (opts: {
+    period: string;
+    framework: string;
+    output: string;
+    human?: string;
+    agents?: string;
+    open?: boolean;
+  }) => {
+    const spinner = ora('Generating compliance report...').start();
+
+    try {
+      const projectConfig = config.requireProjectConfig();
+
+      const params = new URLSearchParams();
+      params.set('period', opts.period);
+      params.set('framework', opts.framework);
+      params.set('format', 'html');
+      if (opts.human) params.set('human', opts.human);
+      if (opts.agents) params.set('agents', opts.agents);
+
+      const baseUrl = projectConfig.registryUrl;
+      const url = `${baseUrl}/api/compliance/report?${params.toString()}`;
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Registry returned ${res.status}: ${text}`);
+      }
+
+      const html = await res.text();
+
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const outputPath = path.resolve(opts.output);
+      fs.writeFileSync(outputPath, html, 'utf-8');
+
+      spinner.succeed('Compliance report generated.');
+      display.blank();
+      display.success(`Report saved to ${chalk.cyan(outputPath)}`);
+      display.info(`Period: ${chalk.white(opts.period)} | Framework: ${chalk.white(opts.framework)}`);
+      if (opts.human) display.info(`Filtered by: ${chalk.white(opts.human)}`);
+      display.blank();
+
+      if (opts.open) {
+        const { exec } = await import('node:child_process');
+        const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+        exec(`${openCmd} "${outputPath}"`);
+      }
+    } catch (err: unknown) {
+      spinner.fail('Failed to generate compliance report.');
+      display.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+// ─── eigent rotate <agent-name> ───
+
+program
+  .command('rotate <agent-name>')
+  .description('Rotate an agent token (issues new token, old expires after grace period)')
+  .action(async (agentName: string) => {
+    const spinner = ora(`Rotating token for ${chalk.cyan(agentName)}...`).start();
+
+    try {
+      config.requireProjectConfig();
+
+      const token = config.requireToken(agentName);
+      const payload = decodeTokenPayload(token);
+      const agentId = extractAgentId(payload);
+
+      const result = await api.rotateAgentToken(agentId);
+
+      // Save the new token
+      config.saveToken(agentName, result.new_token);
+
+      spinner.succeed('Token rotated.');
+      display.blank();
+      display.keyValue([
+        ['Agent', chalk.cyan.bold(agentName)],
+        ['Agent ID', chalk.white(result.agent_id)],
+        ['Old Token Expires', chalk.yellow(result.old_token_expires)],
+        ['New Token', chalk.green('saved')],
+      ]);
+      display.blank();
+      display.info('Old token is still valid for 5 minutes for graceful handoff.');
+      display.blank();
+    } catch (err: unknown) {
+      spinner.fail('Token rotation failed.');
+      display.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+// ─── eigent deprovision <agent-name> ───
+
+program
+  .command('deprovision <agent-name>')
+  .description('Permanently deprovision an agent (archived, not deleted)')
+  .action(async (agentName: string) => {
+    const spinner = ora(`Deprovisioning ${chalk.cyan(agentName)}...`).start();
+
+    try {
+      config.requireProjectConfig();
+
+      const token = config.requireToken(agentName);
+      const payload = decodeTokenPayload(token);
+      const agentId = extractAgentId(payload);
+
+      const result = await api.deprovisionAgent(agentId);
+
+      // Remove local token
+      config.removeToken(agentName);
+
+      spinner.succeed('Agent deprovisioned.');
+      display.blank();
+      display.keyValue([
+        ['Agent', chalk.cyan.bold(result.agent_name)],
+        ['Agent ID', chalk.white(result.agent_id)],
+        ['Deprovisioned At', chalk.gray(result.deprovisioned_at)],
+        ['Cascade Affected', chalk.yellow(String(result.total_affected))],
+      ]);
+      display.blank();
+      display.info('Agent is archived for audit purposes. This action is permanent.');
+      display.blank();
+    } catch (err: unknown) {
+      spinner.fail('Deprovisioning failed.');
+      display.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+// ─── eigent stale ───
+
+program
+  .command('stale')
+  .description('List stale agents (no heartbeat within threshold)')
+  .option('-t, --threshold <minutes>', 'Staleness threshold in minutes', '30')
+  .action(async (opts: { threshold: string }) => {
+    const spinner = ora('Checking for stale agents...').start();
+
+    try {
+      config.requireProjectConfig();
+
+      const result = await api.listStaleAgents(parseInt(opts.threshold, 10));
+
+      spinner.stop();
+      display.blank();
+
+      if (result.stale_agents.length === 0) {
+        display.success('No stale agents found.');
+      } else {
+        display.warn(`${result.total} stale agent(s) found (threshold: ${result.threshold_minutes}m)`);
+        display.blank();
+
+        const header = [
+          'Name'.padEnd(20),
+          'Human'.padEnd(25),
+          'Last Seen'.padEnd(15),
+          'Status',
+        ];
+        console.log(`  ${chalk.bold.underline(header.join('  '))}`);
+
+        for (const agent of result.stale_agents) {
+          const lastSeen = agent.last_seen_at
+            ? `${agent.minutes_since_seen}m ago`
+            : 'never';
+          const row = [
+            chalk.cyan(agent.name.padEnd(20)),
+            chalk.gray(agent.human_email.slice(0, 25).padEnd(25)),
+            chalk.yellow(lastSeen.padEnd(15)),
+            chalk.red(agent.status),
+          ];
+          console.log(`  ${row.join('  ')}`);
+        }
+      }
+      display.blank();
+    } catch (err: unknown) {
+      spinner.fail('Failed to check stale agents.');
+      display.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+// ─── eigent usage ───
+
+program
+  .command('usage')
+  .description('Show usage statistics')
+  .option('-a, --agent <name>', 'Show usage for a specific agent')
+  .option('-h, --hours <hours>', 'Time window in hours', '24')
+  .action(async (opts: { agent?: string; hours: string }) => {
+    const spinner = ora('Fetching usage stats...').start();
+
+    try {
+      config.requireProjectConfig();
+      const hours = parseInt(opts.hours, 10);
+
+      if (opts.agent) {
+        // Agent-specific usage
+        const token = config.requireToken(opts.agent);
+        const payload = decodeTokenPayload(token);
+        const agentId = extractAgentId(payload);
+
+        const result = await api.getAgentUsage(agentId, hours);
+        spinner.stop();
+        display.blank();
+        console.log(`  ${chalk.bold('Usage')} for ${chalk.cyan(result.agent_name)} ${chalk.gray(`(last ${hours}h)`)}`);
+        display.blank();
+
+        if (result.usage.length === 0) {
+          display.info('No usage recorded.');
+        } else {
+          const header = [
+            'Hour'.padEnd(22),
+            'Tool Calls'.padEnd(12),
+            'Blocked'.padEnd(10),
+            'Errors',
+          ];
+          console.log(`  ${chalk.bold.underline(header.join('  '))}`);
+
+          for (const u of result.usage) {
+            const hourStr = new Date(u.hour).toLocaleString();
+            const row = [
+              chalk.gray(hourStr.padEnd(22)),
+              chalk.green(String(u.tool_calls).padEnd(12)),
+              chalk.yellow(String(u.blocked_calls).padEnd(10)),
+              u.errors > 0 ? chalk.red(String(u.errors)) : chalk.gray('0'),
+            ];
+            console.log(`  ${row.join('  ')}`);
+          }
+        }
+      } else {
+        // Org-wide summary
+        const result = await api.getUsageSummary(hours);
+        spinner.stop();
+        display.blank();
+        console.log(`  ${chalk.bold('Usage Summary')} ${chalk.gray(`(last ${hours}h)`)}`);
+        display.blank();
+        display.keyValue([
+          ['Total Tool Calls', chalk.green(String(result.total_tool_calls))],
+          ['Blocked Calls', chalk.yellow(String(result.total_blocked_calls))],
+          ['Errors', result.total_errors > 0 ? chalk.red(String(result.total_errors)) : chalk.gray('0')],
+          ['Active Agents', chalk.cyan(String(result.active_agents))],
+        ]);
+
+        if (result.top_agents.length > 0) {
+          display.blank();
+          console.log(`  ${chalk.bold('Top Agents')}`);
+          for (const agent of result.top_agents) {
+            display.info(`${agent.agent_name ?? agent.agent_id.slice(0, 8)}: ${chalk.green(String(agent.total_calls))} calls`);
+          }
+        }
+      }
+      display.blank();
+    } catch (err: unknown) {
+      spinner.fail('Failed to fetch usage stats.');
       display.error(err instanceof Error ? err.message : String(err));
       process.exit(1);
     }

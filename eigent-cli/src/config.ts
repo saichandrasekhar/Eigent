@@ -28,6 +28,8 @@ interface Session {
   iss: string;
   token: string;
   authenticatedAt: string;
+  verified?: boolean;
+  providerType?: string;
 }
 
 // ─── Helpers ───

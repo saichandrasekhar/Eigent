@@ -226,3 +226,85 @@ export async function healthCheck(): Promise<boolean> {
     return false;
   }
 }
+
+// ─── Lifecycle API ───
+
+export interface RotateResult {
+  agent_id: string;
+  new_token: string;
+  old_token_expires: string;
+}
+
+export async function rotateAgentToken(agentId: string): Promise<RotateResult> {
+  return request<RotateResult>('POST', `/api/agents/${agentId}/rotate`);
+}
+
+export interface DeprovisionResult {
+  agent_id: string;
+  agent_name: string;
+  deprovisioned_at: string;
+  cascade_revoked: string[];
+  total_affected: number;
+}
+
+export async function deprovisionAgent(agentId: string): Promise<DeprovisionResult> {
+  return request<DeprovisionResult>('POST', `/api/agents/${agentId}/deprovision`);
+}
+
+export interface StaleAgent {
+  id: string;
+  name: string;
+  human_email: string;
+  last_seen_at: string | null;
+  status: string;
+  minutes_since_seen: number;
+}
+
+export interface StaleResult {
+  stale_agents: StaleAgent[];
+  total: number;
+  threshold_minutes: number;
+}
+
+export async function listStaleAgents(thresholdMinutes?: number): Promise<StaleResult> {
+  const query = thresholdMinutes ? `?threshold_minutes=${thresholdMinutes}` : '';
+  return request<StaleResult>('GET', `/api/agents/stale${query}`);
+}
+
+export interface UsageRecord {
+  agent_id: string;
+  hour: string;
+  tool_calls: number;
+  blocked_calls: number;
+  errors: number;
+}
+
+export interface AgentUsageResult {
+  agent_id: string;
+  agent_name: string;
+  hours: number;
+  usage: UsageRecord[];
+}
+
+export async function getAgentUsage(agentId: string, hours?: number): Promise<AgentUsageResult> {
+  const query = hours ? `?hours=${hours}` : '';
+  return request<AgentUsageResult>('GET', `/api/agents/${agentId}/usage${query}`);
+}
+
+export interface UsageSummary {
+  hours: number;
+  total_tool_calls: number;
+  total_blocked_calls: number;
+  total_errors: number;
+  active_agents: number;
+  top_agents: Array<{
+    agent_id: string;
+    agent_name: string;
+    total_calls: number;
+  }>;
+}
+
+export async function getUsageSummary(hours?: number): Promise<UsageSummary> {
+  const query = hours ? `?hours=${hours}` : '';
+  return request<UsageSummary>('GET', `/api/usage/summary${query}`);
+}

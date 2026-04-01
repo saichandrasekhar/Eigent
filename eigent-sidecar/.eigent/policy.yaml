@@ -1,0 +1,42 @@
+version: "1"
+default_action: allow
+rules:
+  - name: block-filesystem-writes
+    match:
+      tool: write_file
+      arguments:
+        path: "^/etc/.*|^/usr/.*|^/var/.*"
+    action: deny
+    reason: "Write to system directory blocked"
+    priority: 100
+
+  - name: block-shell-execution
+    match:
+      tool: [execute_command, run_shell, bash]
+    action: deny
+    reason: "Shell execution disabled by policy"
+    priority: 100
+
+  - name: restrict-db-access-by-depth
+    match:
+      tool: query_database
+      delegation_depth:
+        gt: 1
+    action: deny
+    reason: "Database access only allowed for direct agents (depth 0-1)"
+
+  - name: business-hours-only
+    match:
+      tool: "*"
+      time_window:
+        before: "08:00"
+        after: "18:00"
+    action: log
+    reason: "After-hours agent activity logged for review"
+
+  - name: no-anonymous-agents
+    match:
+      agent_id: null
+    action: deny
+    reason: "Unauthenticated agents are not permitted"
+    priority: 200

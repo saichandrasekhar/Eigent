@@ -48,6 +48,8 @@ function createSchema(database: Database.Database): void {
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       revoked_at TEXT,
+      last_seen_at TEXT,
+      deprovisioned_at TEXT,
       metadata TEXT,
       FOREIGN KEY (parent_id) REFERENCES agents(id)
     );
@@ -71,13 +73,54 @@ function createSchema(database: Database.Database): void {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS agent_usage (
+      agent_id TEXT NOT NULL,
+      hour TEXT NOT NULL,
+      tool_calls INTEGER DEFAULT 0,
+      blocked_calls INTEGER DEFAULT 0,
+      errors INTEGER DEFAULT 0,
+      PRIMARY KEY (agent_id, hour),
+      FOREIGN KEY (agent_id) REFERENCES agents(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
     CREATE INDEX IF NOT EXISTS idx_agents_human_email ON agents(human_email);
     CREATE INDEX IF NOT EXISTS idx_agents_parent_id ON agents(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_agents_human_sub ON agents(human_sub);
+    CREATE INDEX IF NOT EXISTS idx_agents_expires_at ON agents(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_agents_last_seen_at ON agents(last_seen_at);
+    CREATE INDEX IF NOT EXISTS idx_agent_usage_hour ON agent_usage(hour);
     CREATE INDEX IF NOT EXISTS idx_audit_agent_id ON audit_log(agent_id);
     CREATE INDEX IF NOT EXISTS idx_audit_human_email ON audit_log(human_email);
     CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
+
+    CREATE TABLE IF NOT EXISTS oidc_providers (
+      id TEXT PRIMARY KEY,
+      issuer_url TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      client_secret_encrypted TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'generic',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      human_sub TEXT NOT NULL,
+      human_email TEXT NOT NULL,
+      human_iss TEXT NOT NULL,
+      id_token_hash TEXT NOT NULL,
+      provider_id TEXT,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (provider_id) REFERENCES oidc_providers(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_human_sub ON sessions(human_sub);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_oidc_providers_issuer ON oidc_providers(issuer_url);
   `);
 }
 
@@ -99,6 +142,8 @@ export interface AgentRow {
   created_at: string;
   expires_at: string;
   revoked_at: string | null;
+  last_seen_at: string | null;
+  deprovisioned_at: string | null;
   metadata: string | null;
 }
 
@@ -106,14 +151,15 @@ export function insertAgent(agent: AgentRow): void {
   const stmt = getDb().prepare(`
     INSERT INTO agents (id, name, human_sub, human_email, human_iss, scope, parent_id,
       delegation_depth, max_delegation_depth, can_delegate, token_jti, status,
-      created_at, expires_at, revoked_at, metadata)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_at, expires_at, revoked_at, last_seen_at, deprovisioned_at, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     agent.id, agent.name, agent.human_sub, agent.human_email, agent.human_iss,
     agent.scope, agent.parent_id, agent.delegation_depth, agent.max_delegation_depth,
     agent.can_delegate, agent.token_jti, agent.status, agent.created_at,
-    agent.expires_at, agent.revoked_at, agent.metadata
+    agent.expires_at, agent.revoked_at, agent.last_seen_at ?? null,
+    agent.deprovisioned_at ?? null, agent.metadata
   );
 }
 
@@ -295,6 +341,99 @@ export function getLatestKey(): KeyRow | undefined {
 
 export function getAllPublicKeys(): { id: string; public_key: string }[] {
   return getDb().prepare('SELECT id, public_key FROM keys ORDER BY created_at DESC').all() as { id: string; public_key: string }[];
+}
+
+// ─── Agent Lookup by Human Sub ───
+
+export function listAgentsByHumanSub(humanSub: string, status?: string): AgentRow[] {
+  if (status) {
+    return getDb()
+      .prepare('SELECT * FROM agents WHERE human_sub = ? AND status = ? ORDER BY created_at DESC')
+      .all(humanSub, status) as AgentRow[];
+  }
+  return getDb()
+    .prepare('SELECT * FROM agents WHERE human_sub = ? ORDER BY created_at DESC')
+    .all(humanSub) as AgentRow[];
+}
+
+// ─── OIDC Provider Operations ───
+
+export interface OIDCProviderRow {
+  id: string;
+  issuer_url: string;
+  client_id: string;
+  client_secret_encrypted: string;
+  type: string;
+  enabled: number;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export function insertOIDCProvider(provider: OIDCProviderRow): void {
+  getDb().prepare(`
+    INSERT INTO oidc_providers (id, issuer_url, client_id, client_secret_encrypted, type, enabled, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    provider.id, provider.issuer_url, provider.client_id, provider.client_secret_encrypted,
+    provider.type, provider.enabled, provider.created_at, provider.updated_at,
+  );
+}
+
+export function getOIDCProviderById(id: string): OIDCProviderRow | undefined {
+  return getDb().prepare('SELECT * FROM oidc_providers WHERE id = ?').get(id) as OIDCProviderRow | undefined;
+}
+
+export function getOIDCProviderByIssuer(issuerUrl: string): OIDCProviderRow | undefined {
+  return getDb().prepare('SELECT * FROM oidc_providers WHERE issuer_url = ? AND enabled = 1').get(issuerUrl) as OIDCProviderRow | undefined;
+}
+
+export function listOIDCProviders(enabledOnly: boolean = true): OIDCProviderRow[] {
+  if (enabledOnly) {
+    return getDb().prepare('SELECT * FROM oidc_providers WHERE enabled = 1 ORDER BY created_at DESC').all() as OIDCProviderRow[];
+  }
+  return getDb().prepare('SELECT * FROM oidc_providers ORDER BY created_at DESC').all() as OIDCProviderRow[];
+}
+
+// ─── Session Operations ───
+
+export interface SessionRow {
+  id: string;
+  human_sub: string;
+  human_email: string;
+  human_iss: string;
+  id_token_hash: string;
+  provider_id: string | null;
+  expires_at: string;
+  created_at: string;
+}
+
+export function insertSession(session: SessionRow): void {
+  getDb().prepare(`
+    INSERT INTO sessions (id, human_sub, human_email, human_iss, id_token_hash, provider_id, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    session.id, session.human_sub, session.human_email, session.human_iss,
+    session.id_token_hash, session.provider_id, session.expires_at, session.created_at,
+  );
+}
+
+export function getSessionById(id: string): SessionRow | undefined {
+  return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(id) as SessionRow | undefined;
+}
+
+export function getActiveSession(sessionId: string): SessionRow | undefined {
+  return getDb().prepare(
+    'SELECT * FROM sessions WHERE id = ? AND expires_at > ?',
+  ).get(sessionId, new Date().toISOString()) as SessionRow | undefined;
+}
+
+export function deleteSession(sessionId: string): void {
+  getDb().prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+}
+
+export function deleteExpiredSessions(): number {
+  const result = getDb().prepare('DELETE FROM sessions WHERE expires_at <= ?').run(new Date().toISOString());
+  return result.changes;
 }
 
 export function closeDb(): void {
