@@ -1,192 +1,112 @@
-import { prisma } from "@/lib/db";
 import { StatsCard } from "@/components/stats-card";
-import { FindingsTable } from "@/components/findings-table";
+import { fetchAgents, fetchAuditLog, checkHealth } from "@/lib/registry";
+import { DelegationTree, buildTree } from "@/components/delegation-tree";
+import { AuditLog } from "@/components/audit-log";
 
-async function getStats() {
-  try {
-    const [totalAgents, noAuth, criticalFindings, shadowAgents] = await Promise.all([
-      prisma.agent.count(),
-      prisma.agent.count({ where: { authStatus: "none" } }),
-      prisma.finding.count({ where: { severity: "critical" } }),
-      prisma.agent.count({ where: { source: "env_scan" } }),
-    ]);
-    return { totalAgents, noAuth, criticalFindings, shadowAgents };
-  } catch {
-    return { totalAgents: 0, noAuth: 0, criticalFindings: 0, shadowAgents: 0 };
-  }
-}
+async function getDashboardData() {
+  const [
+    allAgentsResult,
+    activeAgentsResult,
+    auditResult,
+    recentBlockedResult,
+    registryHealthy,
+  ] = await Promise.all([
+    fetchAgents(""),
+    fetchAgents("active"),
+    fetchAuditLog({ limit: 20 }),
+    fetchAuditLog({ action: "tool_call_blocked", limit: 100 }),
+    checkHealth(),
+  ]);
 
-async function getRecentFindings() {
-  try {
-    return await prisma.finding.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
-  } catch {
-    return [];
-  }
-}
+  const allAgents = allAgentsResult.agents;
+  const activeAgents = activeAgentsResult.agents;
 
-async function getRiskTrend() {
-  try {
-    const scans = await prisma.scan.findMany({
-      orderBy: { timestamp: "desc" },
-      take: 10,
-      include: {
-        findings: {
-          select: { severity: true },
-        },
-      },
-    });
-
-    return scans.reverse().map((scan) => ({
-      scanId: scan.id,
-      timestamp: scan.timestamp.toISOString(),
-      totalFindings: scan.totalFindings,
-      critical: scan.findings.filter((f) => f.severity === "critical").length,
-      high: scan.findings.filter((f) => f.severity === "high").length,
-      medium: scan.findings.filter((f) => f.severity === "medium").length,
-      low: scan.findings.filter((f) => f.severity === "low").length,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-function RiskTrendChart({ data }: { data: Awaited<ReturnType<typeof getRiskTrend>> }) {
-  if (data.length === 0) {
-    return (
-      <div className="bg-bg-card rounded-xl border border-border p-8 text-center">
-        <p className="text-text-muted text-sm">No scan data yet. Submit scans to see trends.</p>
-      </div>
-    );
-  }
-
-  const maxFindings = Math.max(...data.map((d) => d.totalFindings), 1);
-  const width = 600;
-  const height = 200;
-  const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-  const chartW = width - padding.left - padding.right;
-  const chartH = height - padding.top - padding.bottom;
-
-  function toX(i: number) {
-    return padding.left + (i / Math.max(data.length - 1, 1)) * chartW;
-  }
-  function toY(val: number) {
-    return padding.top + chartH - (val / maxFindings) * chartH;
-  }
-
-  const totalLine = data.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(d.totalFindings)}`).join(" ");
-  const criticalLine = data.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(d.critical)}`).join(" ");
-
-  // Area fill under total line
-  const areaPath = totalLine + ` L${toX(data.length - 1)},${toY(0)} L${toX(0)},${toY(0)} Z`;
-
-  return (
-    <div className="bg-bg-card rounded-xl border border-border p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display font-semibold text-sm text-text-primary">Risk Trend</h3>
-        <div className="flex items-center gap-4 text-[0.6rem] font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-accent rounded" /> Total
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-severity-critical rounded" /> Critical
-          </span>
-        </div>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-        {/* Grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-          <g key={pct}>
-            <line
-              x1={padding.left}
-              y1={toY(pct * maxFindings)}
-              x2={width - padding.right}
-              y2={toY(pct * maxFindings)}
-              stroke="#1e2235"
-              strokeWidth="1"
-            />
-            <text
-              x={padding.left - 8}
-              y={toY(pct * maxFindings) + 3}
-              fill="#555872"
-              fontSize="9"
-              textAnchor="end"
-              fontFamily="JetBrains Mono"
-            >
-              {Math.round(pct * maxFindings)}
-            </text>
-          </g>
-        ))}
-
-        {/* Area fill */}
-        <path d={areaPath} fill="url(#areaGradient)" />
-        <defs>
-          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#7c6aef" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#7c6aef" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* Lines */}
-        <path d={totalLine} fill="none" stroke="#7c6aef" strokeWidth="2" />
-        <path d={criticalLine} fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 2" />
-
-        {/* Data points */}
-        {data.map((d, i) => (
-          <g key={d.scanId}>
-            <circle cx={toX(i)} cy={toY(d.totalFindings)} r="3" fill="#7c6aef" />
-            <circle cx={toX(i)} cy={toY(d.critical)} r="2.5" fill="#ef4444" />
-          </g>
-        ))}
-
-        {/* X-axis labels */}
-        {data.map((d, i) => (
-          <text
-            key={d.scanId}
-            x={toX(i)}
-            y={height - 5}
-            fill="#555872"
-            fontSize="8"
-            textAnchor="middle"
-            fontFamily="JetBrains Mono"
-          >
-            {new Date(d.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </text>
-        ))}
-      </svg>
-    </div>
+  // Compute stats
+  const uniqueHumans = new Set(allAgents.map((a) => a.human_email));
+  const delegationChains = allAgents.filter((a) => a.parent_id !== null);
+  const expiredTokens = allAgents.filter(
+    (a) => a.status === "active" && new Date(a.expires_at) < new Date()
   );
+  const unboundAgents = allAgents.filter(
+    (a) => a.status === "active" && !a.human_email
+  );
+
+  // Count violations in last 24h
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const recentViolations = recentBlockedResult.entries.filter(
+    (e) => e.timestamp >= twentyFourHoursAgo
+  ).length;
+
+  return {
+    stats: {
+      activeAgents: activeAgents.length,
+      delegationChains: delegationChains.length,
+      policyViolations24h: recentViolations,
+      humansWithAgents: uniqueHumans.size,
+    },
+    allAgents,
+    activeAgents,
+    auditEntries: auditResult.entries,
+    risks: {
+      unboundAgents: unboundAgents.length,
+      expiredTokens: expiredTokens.length,
+      staleAgents: 0,
+    },
+    registryHealthy,
+  };
 }
 
 export default async function DashboardPage() {
-  const [stats, findings, riskTrend] = await Promise.all([
-    getStats(),
-    getRecentFindings(),
-    getRiskTrend(),
-  ]);
+  const {
+    stats,
+    allAgents,
+    activeAgents,
+    auditEntries,
+    risks,
+    registryHealthy,
+  } = await getDashboardData();
 
-  const formattedFindings = findings.map((f) => ({
-    ...f,
-    createdAt: f.createdAt.toISOString(),
+  // Build tree from all agents
+  const treeNodes = allAgents.map((a) => ({
+    id: a.id,
+    name: a.name,
+    human_email: a.human_email,
+    scope: a.scope,
+    status: a.status,
+    delegation_depth: a.delegation_depth,
+    created_at: a.created_at,
+    expires_at: a.expires_at,
+    parent_id: a.parent_id,
   }));
+  const tree = buildTree(treeNodes);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-display font-bold text-text-primary">Dashboard</h1>
-        <p className="text-text-muted text-sm mt-1 font-display">
-          Agent security posture across your organization
-        </p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-text-primary">Control Plane</h1>
+          <p className="text-text-muted text-sm mt-1 font-display">
+            Agent identities, delegation chains, and policy decisions
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono border ${
+            registryHealthy
+              ? "border-status-pass/30 text-status-pass bg-status-pass/5"
+              : "border-status-fail/30 text-status-fail bg-status-fail/5"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${registryHealthy ? "bg-status-pass" : "bg-status-fail"}`} />
+            Registry {registryHealthy ? "Connected" : "Offline"}
+          </span>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatsCard
-          label="Total Agents"
-          value={stats.totalAgents}
+          label="Active Agents"
+          value={stats.activeAgents}
           variant="accent"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -196,21 +116,21 @@ export default async function DashboardPage() {
           }
         />
         <StatsCard
-          label="No Auth"
-          value={stats.noAuth}
-          variant="danger"
+          label="Delegation Chains"
+          value={stats.delegationChains}
+          variant="accent"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0110 0v4" />
-              <line x1="1" y1="1" x2="23" y2="23" strokeWidth="1.5" />
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
             </svg>
           }
         />
         <StatsCard
-          label="Critical Findings"
-          value={stats.criticalFindings}
-          variant="danger"
+          label="Policy Violations (24h)"
+          value={stats.policyViolations24h}
+          variant={stats.policyViolations24h > 0 ? "danger" : "default"}
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -220,31 +140,69 @@ export default async function DashboardPage() {
           }
         />
         <StatsCard
-          label="Shadow Agents"
-          value={stats.shadowAgents}
-          variant="warning"
+          label="Humans with Agents"
+          value={stats.humansWithAgents}
+          variant="default"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87" />
+              <path d="M16 3.13a4 4 0 010 7.75" />
             </svg>
           }
         />
       </div>
 
-      {/* Risk Trend */}
-      <div className="mb-8">
-        <RiskTrendChart data={riskTrend} />
-      </div>
-
-      {/* Recent Findings */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-semibold text-sm text-text-primary">Recent Findings</h2>
-          <span className="text-text-muted text-xs font-mono">{findings.length} findings</span>
+      {/* Risk Indicators */}
+      {(risks.expiredTokens > 0 || risks.unboundAgents > 0) && (
+        <div className="mb-8 bg-severity-critical/5 border border-severity-critical/20 rounded-xl p-4">
+          <h3 className="font-display font-semibold text-sm text-severity-critical mb-2 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            Risk Indicators
+          </h3>
+          <div className="flex flex-wrap gap-4 text-xs font-mono">
+            {risks.expiredTokens > 0 && (
+              <span className="text-severity-high">
+                {risks.expiredTokens} expired token{risks.expiredTokens !== 1 ? "s" : ""} still marked active
+              </span>
+            )}
+            {risks.unboundAgents > 0 && (
+              <span className="text-severity-critical">
+                {risks.unboundAgents} agent{risks.unboundAgents !== 1 ? "s" : ""} without human binding
+              </span>
+            )}
+          </div>
         </div>
-        <FindingsTable findings={formattedFindings} />
+      )}
+
+      {/* Two-column layout: Delegation Tree + Audit */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Delegation Chains */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-semibold text-sm text-text-primary">Active Delegation Chains</h2>
+            <a href="/delegation" className="text-accent text-xs font-display hover:text-accent-light transition-colors">
+              View All
+            </a>
+          </div>
+          <DelegationTree agents={tree.slice(0, 5)} compact />
+        </div>
+
+        {/* Recent Audit Events */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-semibold text-sm text-text-primary">Recent Audit Events</h2>
+            <a href="/audit" className="text-accent text-xs font-display hover:text-accent-light transition-colors">
+              View All
+            </a>
+          </div>
+          <AuditLog entries={auditEntries} showFilters={false} compact />
+        </div>
       </div>
     </div>
   );
