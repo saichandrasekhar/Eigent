@@ -5,6 +5,8 @@ import type {
   AuditEntry,
   VerifyResult,
   RevokeResult,
+  ExplainResult,
+  TraceEvent,
 } from './api.js';
 
 // ─── Branding ───
@@ -239,6 +241,181 @@ export function agentIssued(agent: AgentRecord, tokenPath: string): void {
     ['Expires', chalk.gray(formatRelativeTime(agent.expires_at))],
     ['Token', chalk.gray(tokenPath)],
   ]);
+  console.log();
+}
+
+// ─── Explain Result ───
+
+export function explainResult(result: ExplainResult): void {
+  console.log();
+
+  if (result.allowed) {
+    console.log(
+      `  ${chalk.green.bold('\u2713 ALLOWED')}: ${chalk.cyan(result.agent_name)} can call ${chalk.yellow(result.tool)}`
+    );
+  } else {
+    console.log(
+      `  ${chalk.red.bold('\u2717 DENIED')}: ${chalk.cyan(result.agent_name)} cannot call ${chalk.yellow(result.tool)}`
+    );
+  }
+
+  console.log();
+  console.log(`  ${chalk.gray('Reason:')} ${result.reason}`);
+  console.log();
+
+  // Agent details
+  console.log(`  ${chalk.bold('Agent:')} ${chalk.cyan(result.agent_name)}`);
+  console.log(`    Scope: [${chalk.white(result.scope.join(', '))}]`);
+  console.log(`    Delegation depth: ${chalk.white(String(result.delegation_depth))}`);
+  console.log(`    Human: ${chalk.white(result.human_email)} ${chalk.gray(`(${result.human_iss})`)}`);
+  console.log();
+
+  // Delegation chain
+  if (result.chain.length > 0) {
+    console.log(`  ${chalk.bold('Delegation chain:')}`);
+    for (let i = 0; i < result.chain.length; i++) {
+      const node = result.chain[i];
+      const indent = '    '.repeat(i + 1);
+      const connector = i === 0 ? '' : '\u2514\u2500 ';
+      const treeLine = i > 0 ? '    '.repeat(i) : '  ';
+
+      if (node.type === 'human') {
+        console.log(
+          `${treeLine}${connector}${chalk.white(node.email ?? node.name)} ${chalk.gray('(human)')}`
+        );
+      } else {
+        const scope = node.scope ? `[${node.scope.join(', ')}]` : '';
+        const isTarget = node.name === result.agent_name;
+        const marker = isTarget ? chalk.yellow(' \u2190 this agent') : '';
+        console.log(
+          `${treeLine}${connector}${chalk.cyan(node.name)} ${chalk.gray(scope)} ${chalk.gray(`(depth ${node.delegation_depth})`)}${marker}`
+        );
+      }
+    }
+    console.log();
+  }
+
+  // Policy evaluation
+  if (result.policy_evaluations.length > 0) {
+    console.log(`  ${chalk.bold('Policy evaluation:')}`);
+    for (const pe of result.policy_evaluations) {
+      const matchStr = pe.matched
+        ? chalk.yellow('match')
+        : chalk.gray('no match');
+      console.log(
+        `    Rule ${chalk.white(`"${pe.rule_name}"`)}: ${matchStr}` +
+        (pe.matched ? ` ${chalk.gray(`(${pe.reason})`)}` : ` ${chalk.gray(`(${pe.reason})`)}`)
+      );
+    }
+    console.log(`    Default action: ${chalk.white(result.default_action)}`);
+  } else {
+    console.log(`  ${chalk.bold('Policy evaluation:')}`);
+    console.log(`    ${chalk.gray('No policy rules configured')}`);
+    console.log(`    Default action: ${chalk.white(result.default_action ?? 'allow')} ${chalk.gray('(scope check is primary)')}`);
+  }
+
+  console.log();
+
+  // Fix suggestions
+  if (!result.allowed) {
+    console.log(`  ${chalk.bold('To fix:')}`);
+    console.log(`    Option 1: Re-delegate with broader scope:`);
+    console.log(`      ${chalk.cyan(`eigent delegate <parent> ${result.agent_name} --scope ${[...result.scope, result.tool].join(',')}`)}`);
+    console.log();
+    console.log(`    Option 2: Issue a new agent with the scope:`);
+    console.log(`      ${chalk.cyan(`eigent issue <new-agent> --scope ${result.tool}`)}`);
+    console.log();
+    console.log(`  ${chalk.gray('Docs: https://eigent.dev/concepts/permissions')}`);
+  }
+
+  console.log();
+}
+
+// ─── Trace Event ───
+
+export function traceEvent(event: TraceEvent): void {
+  console.log();
+  console.log(`  ${chalk.bold('Event:')} ${chalk.white(event.action)}`);
+  console.log(`  ${chalk.bold('Time:')}  ${chalk.white(event.timestamp)}`);
+  console.log(`  ${chalk.bold('ID:')}    ${chalk.gray(event.id)}`);
+  console.log();
+
+  // Full trace
+  console.log(`  ${chalk.bold('Full trace:')}`);
+
+  // Find the human at the root
+  const humanNode = event.chain.find(n => n.type === 'human');
+  if (humanNode) {
+    console.log(`    Human: ${chalk.white(humanNode.email ?? humanNode.name)}`);
+  } else {
+    console.log(`    Human: ${chalk.white(event.human_email)}`);
+  }
+
+  // Show the delegation chain
+  const agentNodes = event.chain.filter(n => n.type === 'agent');
+  for (let i = 0; i < agentNodes.length; i++) {
+    const node = agentNodes[i];
+    const prefix = '    ' + '  '.repeat(i + 1) + '\u2193 ';
+    const scope = node.scope ? `[${node.scope.join(', ')}]` : '';
+    const isLast = i === agentNodes.length - 1;
+
+    if (i === 0 && humanNode) {
+      console.log(`${'    ' + '  '}${chalk.gray('\u2193')} ${chalk.gray('issued eigent token')}`);
+    } else {
+      console.log(`${'    ' + '  '.repeat(i + 1)}${chalk.gray('\u2193')} ${chalk.gray('delegated')}`);
+    }
+
+    console.log(
+      `${'    ' + '  '.repeat(i + 1)}Agent: ${chalk.cyan(node.name)} ${chalk.gray(`(id: ${(node.agent_id ?? '').slice(0, 7)})`)}`
+    );
+
+    if (isLast && event.tool_name) {
+      console.log(`${'    ' + '  '.repeat(i + 2)}${chalk.gray('\u2193')} ${chalk.gray(`attempted tools/call: ${event.tool_name}`)}`);
+
+      // Show decision
+      const decisionLabel = event.decision === 'deny' || event.action.includes('blocked')
+        ? chalk.red.bold('BLOCKED')
+        : chalk.green.bold('ALLOWED');
+
+      console.log(`${'    ' + '  '.repeat(i + 2)}Sidecar: ${decisionLabel}`);
+
+      if (event.reason) {
+        console.log(`${'    ' + '  '.repeat(i + 3)}Reason: ${chalk.white(event.reason)}`);
+      }
+      if (event.policy_rule) {
+        console.log(`${'    ' + '  '.repeat(i + 3)}Policy: ${chalk.white(event.policy_rule)}`);
+      } else if (event.action.includes('blocked')) {
+        console.log(`${'    ' + '  '.repeat(i + 3)}Policy: ${chalk.gray('no matching rule (scope check is pre-policy)')}`);
+      }
+    }
+  }
+
+  // If no agent chain but we have details
+  if (agentNodes.length === 0 && event.agent_name) {
+    console.log(`      ${chalk.gray('\u2193')} issued eigent token`);
+    console.log(`      Agent: ${chalk.cyan(event.agent_name)} ${chalk.gray(`(id: ${event.agent_id.slice(0, 7)})`)}`);
+    if (event.tool_name) {
+      console.log(`        ${chalk.gray('\u2193')} attempted tools/call: ${event.tool_name}`);
+      const decisionLabel = event.decision === 'deny' || event.action.includes('blocked')
+        ? chalk.red.bold('BLOCKED')
+        : chalk.green.bold('ALLOWED');
+      console.log(`        Sidecar: ${decisionLabel}`);
+      if (event.reason) {
+        console.log(`          Reason: ${chalk.white(event.reason)}`);
+      }
+    }
+  }
+
+  console.log();
+
+  // Audit chain integrity
+  if (event.audit_hash) {
+    const verifiedStr = event.hash_verified
+      ? chalk.green('\u2713 verified')
+      : chalk.red('\u2717 failed');
+    console.log(`  ${chalk.bold('Audit chain integrity:')} ${verifiedStr} ${chalk.gray(`(hash: ${event.audit_hash.slice(0, 20)}...)`)}`);
+  }
+
   console.log();
 }
 

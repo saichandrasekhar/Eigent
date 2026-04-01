@@ -10,6 +10,7 @@ const links = [
   { href: "/agents", label: "Agents", icon: AgentIcon },
   { href: "/delegation", label: "Delegation", icon: TreeIcon },
   { href: "/audit", label: "Audit", icon: ClipboardIcon },
+  { href: "/trace", label: "Trace", icon: TraceIcon },
   { href: "/policies", label: "Policies", icon: RulesIcon },
   { href: "/compliance", label: "Compliance", icon: ShieldIcon },
 ];
@@ -200,6 +201,16 @@ function ShieldIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 2l8 4v6c0 5.5-3.8 10.7-8 12-4.2-1.3-8-6.5-8-12V6l8-4z" />
+    </svg>
+  );
+}
+
+function TraceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+      <circle cx="12" cy="12" r="3" />
+      <circle cx="12" cy="12" r="8" />
     </svg>
   );
 }

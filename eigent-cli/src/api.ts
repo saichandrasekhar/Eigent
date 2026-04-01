@@ -308,3 +308,60 @@ export async function getUsageSummary(hours?: number): Promise<UsageSummary> {
   const query = hours ? `?hours=${hours}` : '';
   return request<UsageSummary>('GET', `/api/usage/summary${query}`);
 }
+
+// ─── Explain API ───
+
+export interface ExplainResult {
+  allowed: boolean;
+  agent_id: string;
+  agent_name: string;
+  tool: string;
+  scope: string[];
+  human_email: string;
+  human_iss: string;
+  delegation_depth: number;
+  max_delegation_depth: number;
+  reason: string;
+  chain: ChainNode[];
+  policy_evaluations: PolicyEvaluation[];
+  default_action: string;
+}
+
+export interface PolicyEvaluation {
+  rule_name: string;
+  matched: boolean;
+  action: string;
+  reason: string;
+}
+
+export async function explainAccess(params: {
+  agent_id: string;
+  tool: string;
+  token: string;
+}): Promise<ExplainResult> {
+  return request<ExplainResult>('POST', '/api/explain', params);
+}
+
+// ─── Trace API ───
+
+export interface TraceEvent {
+  id: string;
+  timestamp: string;
+  action: string;
+  agent_id: string;
+  agent_name: string;
+  human_email: string;
+  tool_name: string | null;
+  details: Record<string, unknown> | null;
+  delegation_chain: string | null;
+  chain: ChainNode[];
+  decision: string | null;
+  reason: string | null;
+  policy_rule: string | null;
+  audit_hash: string | null;
+  hash_verified: boolean;
+}
+
+export async function getTraceEvent(eventId: string): Promise<TraceEvent> {
+  return request<TraceEvent>('GET', `/api/audit/${encodeURIComponent(eventId)}/trace`);
+}

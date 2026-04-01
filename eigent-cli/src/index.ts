@@ -802,6 +802,147 @@ program
     }
   });
 
+// ─── eigent explain <agent-name> <tool-name> ───
+
+program
+  .command('explain <agent-name> <tool-name>')
+  .description('Explain in detail why a tool call would be allowed or denied')
+  .action(async (agentName: string, toolName: string) => {
+    const spinner = ora('Analyzing permissions...').start();
+
+    try {
+      config.requireProjectConfig();
+
+      const token = config.requireToken(agentName);
+      const payload = decodeTokenPayload(token);
+      const agentId = extractAgentId(payload);
+
+      const result = await api.explainAccess({
+        agent_id: agentId,
+        tool: toolName,
+        token,
+      });
+
+      spinner.stop();
+      display.explainResult(result);
+    } catch (err: unknown) {
+      spinner.fail('Explain failed.');
+
+      // If the API doesn't support /api/explain yet, fall back to local explain
+      if (err instanceof Error && err.message.includes('404')) {
+        spinner.stop();
+        try {
+          const token = config.requireToken(agentName);
+          const payload = decodeTokenPayload(token);
+          const agentId = extractAgentId(payload);
+          const scope = Array.isArray(payload.scope) ? payload.scope : [];
+          const allowed = scope.includes(toolName) || scope.includes('*');
+
+          // Fetch chain for context
+          let chain: api.ChainNode[] = [];
+          try {
+            chain = await api.getChain(agentId);
+          } catch {
+            // chain unavailable
+          }
+
+          const result: api.ExplainResult = {
+            allowed,
+            agent_id: agentId,
+            agent_name: agentName,
+            tool: toolName,
+            scope,
+            human_email: (payload as Record<string, unknown>).human_email as string ?? 'unknown',
+            human_iss: (payload as Record<string, unknown>).human_iss as string ?? 'unknown',
+            delegation_depth: (payload as Record<string, unknown>).delegation_depth as number ?? 0,
+            max_delegation_depth: (payload as Record<string, unknown>).max_delegation_depth as number ?? 3,
+            reason: allowed
+              ? `Tool '${toolName}' is in agent scope [${scope.join(', ')}]`
+              : `Tool '${toolName}' is not in agent scope [${scope.join(', ')}]`,
+            chain,
+            policy_evaluations: [],
+            default_action: 'allow',
+          };
+
+          display.explainResult(result);
+        } catch (fallbackErr: unknown) {
+          display.error(fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
+          process.exit(1);
+        }
+      } else {
+        display.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    }
+  });
+
+// ─── eigent trace <event-id> ───
+
+program
+  .command('trace <event-id>')
+  .description('Show the full trace for a specific audit event')
+  .action(async (eventId: string) => {
+    const spinner = ora('Fetching trace...').start();
+
+    try {
+      config.requireProjectConfig();
+
+      const event = await api.getTraceEvent(eventId);
+
+      spinner.stop();
+      display.traceEvent(event);
+    } catch (err: unknown) {
+      spinner.fail('Trace fetch failed.');
+
+      // Fall back to regular audit query if trace endpoint doesn't exist
+      if (err instanceof Error && err.message.includes('404')) {
+        try {
+          const auditResult = await api.queryAudit({ limit: 500 });
+          const entry = auditResult.entries.find(e => e.id === eventId);
+
+          if (!entry) {
+            display.error(`Audit event '${eventId}' not found.`);
+            process.exit(1);
+          }
+
+          // Build a trace event from the audit entry
+          let chain: api.ChainNode[] = [];
+          try {
+            chain = await api.getChain(entry.agent_id);
+          } catch {
+            // chain unavailable
+          }
+
+          const traceData: api.TraceEvent = {
+            id: entry.id,
+            timestamp: entry.timestamp,
+            action: entry.action,
+            agent_id: entry.agent_id,
+            agent_name: entry.agent_name ?? entry.agent_id.slice(0, 8),
+            human_email: entry.human_email,
+            tool_name: entry.tool_name,
+            details: entry.details ? (typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details) as Record<string, unknown> : null,
+            delegation_chain: entry.delegation_chain,
+            chain,
+            decision: entry.action.includes('blocked') ? 'deny' : entry.action.includes('allowed') ? 'allow' : null,
+            reason: entry.details ? String(entry.details) : null,
+            policy_rule: null,
+            audit_hash: null,
+            hash_verified: false,
+          };
+
+          display.traceEvent(traceData);
+        } catch (fallbackErr: unknown) {
+          display.error(fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
+          process.exit(1);
+        }
+      } else {
+        display.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    }
+  });
+
 // ─── eigent logout ───
 
 program
@@ -876,6 +1017,200 @@ function extractAgentId(payload: TokenPayload): string {
   }
   return id;
 }
+
+// ─── eigent quickstart ───
+
+program
+  .command('quickstart')
+  .description('Get Eigent running in 30 seconds — init, login, issue token, detect MCP servers')
+  .option('-r, --registry <url>', 'Registry URL', 'http://localhost:3456')
+  .option('-e, --email <email>', 'Email for demo login', 'developer@eigent.dev')
+  .action(async (opts: { registry: string; email: string }) => {
+    display.banner();
+    const steps = {
+      total: 5,
+      current: 0,
+    };
+
+    const step = (label: string): void => {
+      steps.current++;
+      console.log(`  ${chalk.cyan(`[${steps.current}/${steps.total}]`)} ${label}`);
+    };
+
+    try {
+      // Step 1: Check registry
+      step('Checking registry...');
+      let registryReachable = false;
+      try {
+        const res = await fetch(`${opts.registry}/health`, {
+          signal: AbortSignal.timeout(3000),
+        });
+        registryReachable = res.ok;
+      } catch {
+        registryReachable = false;
+      }
+
+      if (!registryReachable) {
+        display.warn(
+          `Registry not reachable at ${chalk.cyan(opts.registry)}.\n` +
+          `    Start it with one of:\n` +
+          `      ${chalk.cyan('cd eigent-registry && npm run dev')}\n` +
+          `      ${chalk.cyan('docker compose up -d')}\n` +
+          `    Then re-run: ${chalk.cyan('eigent quickstart')}\n` +
+          `    Docs: https://eigent.dev/getting-started`
+        );
+        display.blank();
+        display.info('Continuing with initialization (commands will work once registry is running)...');
+        display.blank();
+      } else {
+        display.success(`Registry reachable at ${chalk.cyan(opts.registry)}`);
+      }
+
+      // Step 2: Init
+      step('Initializing Eigent...');
+      config.ensureEigentHome();
+      config.initProjectConfig(opts.registry);
+      display.success('Project initialized.');
+
+      // Step 3: Demo login
+      step('Authenticating (demo mode)...');
+      const email = opts.email;
+      const sub = `user-${Buffer.from(email).toString('base64url').slice(0, 12)}`;
+      const iss = 'https://eigent.dev/mock-idp';
+      const mockToken = Buffer.from(
+        JSON.stringify({ sub, email, iss, iat: Math.floor(Date.now() / 1000) })
+      ).toString('base64url');
+
+      config.saveSession({
+        email,
+        sub,
+        iss,
+        token: mockToken,
+        authenticatedAt: new Date().toISOString(),
+        verified: false,
+      });
+      display.success(`Logged in as ${chalk.cyan(email)} ${chalk.yellow('(demo mode)')}`);
+
+      // Step 4: Detect MCP configs and issue token
+      step('Detecting MCP servers...');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const os = await import('node:os');
+      const home = os.default.homedir();
+
+      interface McpConfig {
+        name: string;
+        path: string;
+        exists: boolean;
+      }
+
+      const mcpConfigs: McpConfig[] = [
+        {
+          name: 'Claude Desktop',
+          path: process.platform === 'darwin'
+            ? path.default.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
+            : path.default.join(home, '.config', 'claude', 'claude_desktop_config.json'),
+          exists: false,
+        },
+        {
+          name: 'Cursor',
+          path: path.default.join(home, '.cursor', 'mcp.json'),
+          exists: false,
+        },
+        {
+          name: 'VS Code',
+          path: path.default.join(home, '.vscode', 'mcp.json'),
+          exists: false,
+        },
+      ];
+
+      const detectedConfigs: McpConfig[] = [];
+      for (const cfg of mcpConfigs) {
+        cfg.exists = fs.default.existsSync(cfg.path);
+        if (cfg.exists) {
+          detectedConfigs.push(cfg);
+          display.info(`Found ${chalk.cyan(cfg.name)} config at ${chalk.gray(cfg.path)}`);
+        }
+      }
+
+      if (detectedConfigs.length === 0) {
+        display.info('No MCP server configs detected (Claude Desktop, Cursor, VS Code).');
+        display.info(`You can issue a token manually: ${chalk.cyan('eigent issue my-agent --scope read_file,write_file')}`);
+      }
+
+      // Issue a demo token
+      const agentName = detectedConfigs.length > 0
+        ? detectedConfigs[0].name.toLowerCase().replace(/\s+/g, '-')
+        : 'my-agent';
+
+      if (registryReachable) {
+        try {
+          const agent = await api.createAgent({
+            name: agentName,
+            human_email: email,
+            human_sub: sub,
+            human_iss: iss,
+            scope: ['read_file', 'write_file', 'run_tests', 'search'],
+            ttl: 3600,
+            max_delegation_depth: 3,
+            can_delegate: ['read_file', 'search'],
+          });
+
+          const token = agent.token ?? '';
+          config.saveToken(agentName, token);
+          display.success(`Token issued for ${chalk.cyan(agentName)}`);
+        } catch (err: unknown) {
+          display.warn(`Could not issue token: ${err instanceof Error ? err.message : String(err)}`);
+          display.info(`Issue manually: ${chalk.cyan(`eigent issue ${agentName} --scope read_file,write_file`)}`);
+        }
+      } else {
+        display.info(`Token will be issued when registry is running. Run: ${chalk.cyan(`eigent issue ${agentName} --scope read_file,write_file`)}`);
+      }
+
+      // Step 5: Show summary
+      step('Setup complete!');
+      display.blank();
+
+      // Show delegation chain if we have a token
+      const savedToken = config.loadToken(agentName);
+      if (savedToken && registryReachable) {
+        try {
+          const payload = decodeTokenPayload(savedToken);
+          const agentId = extractAgentId(payload);
+          const chain = await api.getChain(agentId);
+          if (chain.length > 0) {
+            console.log(`  ${chalk.bold('Delegation Chain')}`);
+            display.delegationChain(chain, agentName);
+          }
+        } catch {
+          // Chain display is best-effort
+        }
+      }
+
+      console.log(chalk.green.bold('  Eigent is protecting your agents.'));
+      if (registryReachable) {
+        console.log(`  Dashboard: ${chalk.cyan.underline('http://localhost:3000')}`);
+      }
+      display.blank();
+
+      display.keyValue([
+        ['Config', chalk.gray(config.getProjectDir() + '/config.json')],
+        ['Session', chalk.gray('~/.eigent/session.json')],
+        ['Tokens', chalk.gray(config.getTokensDir())],
+      ]);
+      display.blank();
+
+      console.log(`  ${chalk.bold('Next steps:')}`);
+      display.info(`Wrap an MCP server: ${chalk.cyan(`eigent wrap -a ${agentName} -- npx @modelcontextprotocol/server-filesystem /tmp`)}`);
+      display.info(`Delegate to a sub-agent: ${chalk.cyan(`eigent delegate ${agentName} sub-agent --scope read_file`)}`);
+      display.info(`View audit log: ${chalk.cyan('eigent audit')}`);
+      display.info(`Docs: ${chalk.cyan.underline('https://eigent.dev/getting-started')}`);
+      display.blank();
+    } catch (err: unknown) {
+      display.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
 
 // ─── Run ───
 

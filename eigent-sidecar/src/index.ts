@@ -74,6 +74,14 @@ program
     "--policy <path>",
     "Path to YAML policy file for fine-grained access control",
   )
+  .option(
+    "--decision-log <path>",
+    "Path to JSONL file for logging enforcement decisions",
+  )
+  .option(
+    "--fail-mode <mode>",
+    "Behavior when registry is unreachable: open or closed (default: closed in enforce mode, open otherwise)",
+  )
   .allowUnknownOption(false)
   .action(async (command: string, args: string[], options: {
     otelEndpoint: string;
@@ -85,6 +93,8 @@ program
     eigentToken?: string;
     registryUrl?: string;
     policy?: string;
+    decisionLog?: string;
+    failMode?: string;
   }) => {
     // Validate mode
     const validModes: EnforcementMode[] = ["enforce", "monitor", "permissive"];
@@ -94,6 +104,18 @@ program
         `[eigent-sidecar] Invalid mode '${options.mode}'. Must be one of: ${validModes.join(", ")}\n`,
       );
       process.exit(1);
+    }
+
+    // Validate fail-mode
+    let failMode: "open" | "closed" | undefined;
+    if (options.failMode) {
+      if (options.failMode !== "open" && options.failMode !== "closed") {
+        process.stderr.write(
+          `[eigent-sidecar] Invalid fail-mode '${options.failMode}'. Must be one of: open, closed\n`,
+        );
+        process.exit(1);
+      }
+      failMode = options.failMode;
     }
 
     const interceptor = new McpInterceptor({
@@ -108,6 +130,8 @@ program
       eigentToken: options.eigentToken,
       registryUrl: options.registryUrl,
       policyPath: options.policy,
+      decisionLogPath: options.decisionLog,
+      failMode,
     });
 
     // ── Graceful shutdown ──────────────────────────────────────────

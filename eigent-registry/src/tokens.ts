@@ -3,17 +3,19 @@ import { v7 as uuidv7 } from 'uuid';
 import { getDb, getLatestKey, insertKey, getAllPublicKeys, type KeyRow } from './db.js';
 import { encryptIfEnabled, decryptIfEnabled, encrypt, decrypt } from './crypto.js';
 
-const ALGORITHM = 'ES256';
+const ALGORITHM = 'EdDSA';
 const ISSUER = 'eigent-registry';
 
 /**
  * Ensure a signing key exists in the database. Generate one if not.
+ * Uses Ed25519 (EdDSA) to align with eigent-core key generation.
  */
 export async function ensureSigningKey(): Promise<void> {
   const existing = getLatestKey();
   if (existing) return;
 
-  const { publicKey, privateKey } = await jose.generateKeyPair(ALGORITHM, {
+  const { publicKey, privateKey } = await jose.generateKeyPair('EdDSA', {
+    crv: 'Ed25519',
     extractable: true,
   });
 
@@ -43,7 +45,7 @@ export async function ensureSigningKey(): Promise<void> {
  * Get the current signing private key from the database.
  * Decrypts the private key if encryption is enabled.
  */
-async function getSigningKey(): Promise<{ key: jose.KeyLike; kid: string }> {
+async function getSigningKey(): Promise<{ key: jose.CryptoKey | jose.KeyObject; kid: string }> {
   const keyRow = getLatestKey();
   if (!keyRow) {
     throw new Error('No signing key available. Call ensureSigningKey() first.');
@@ -52,7 +54,7 @@ async function getSigningKey(): Promise<{ key: jose.KeyLike; kid: string }> {
   const decryptedPrivateKey = decryptIfEnabled(keyRow.private_key);
   const privateJwk = JSON.parse(decryptedPrivateKey);
   const key = await jose.importJWK(privateJwk, ALGORITHM);
-  return { key: key as jose.KeyLike, kid: keyRow.id };
+  return { key: key as jose.CryptoKey | jose.KeyObject, kid: keyRow.id };
 }
 
 export interface EigentTokenPayload {
@@ -69,6 +71,7 @@ export interface EigentTokenPayload {
 
 /**
  * Issue a signed eigent token (JWS).
+ * Uses Ed25519 (EdDSA) for signature.
  */
 export async function issueToken(
   payload: EigentTokenPayload,
@@ -106,6 +109,7 @@ export interface VerifiedToken {
 
 /**
  * Verify a token signature and decode the payload.
+ * Supports both EdDSA (new) and ES256 (legacy) keys for smooth migration.
  */
 export async function verifyToken(token: string): Promise<VerifiedToken> {
   const keys = getAllPublicKeys();
@@ -118,9 +122,11 @@ export async function verifyToken(token: string): Promise<VerifiedToken> {
   for (const keyRow of keys) {
     try {
       const publicJwk = JSON.parse(keyRow.public_key);
-      const publicKey = await jose.importJWK(publicJwk, ALGORITHM);
+      // Determine algorithm from the key itself
+      const keyAlg = publicJwk.alg ?? (publicJwk.kty === 'OKP' ? 'EdDSA' : 'ES256');
+      const publicKey = await jose.importJWK(publicJwk, keyAlg);
 
-      const { payload } = await jose.jwtVerify(token, publicKey as jose.KeyLike, {
+      const { payload } = await jose.jwtVerify(token, publicKey as jose.CryptoKey | jose.KeyObject, {
         issuer: ISSUER,
       });
 

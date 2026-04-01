@@ -29,10 +29,11 @@ import {
 } from "./parser.js";
 
 import { TelemetryManager, MCP_ATTR } from "./telemetry.js";
-import { TokenValidator, type EigentClaims } from "./auth.js";
+import { TokenValidator, type EigentClaims, type FailMode } from "./auth.js";
 import { PolicyEnforcer, type EnforcementMode } from "./enforcer.js";
 import type { PolicyConfig } from "./policy.js";
 import { loadPolicy, watchPolicy } from "./policy-loader.js";
+import { DecisionLog } from "./decision-log.js";
 
 // ── Options ────────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ export interface InterceptorOptions {
   registryUrl?: string;
   /** Path to YAML policy file. */
   policyPath?: string;
+  /** Fail mode when registry is unreachable: open or closed. Default: closed in enforce mode. */
+  failMode?: FailMode;
+  /** Path to JSONL decision log file. */
+  decisionLogPath?: string;
 }
 
 // ── Interceptor ────────────────────────────────────────────────────────
@@ -86,6 +91,9 @@ export class McpInterceptor {
   /** Cleanup function for the policy file watcher. */
   private stopPolicyWatch: (() => void) | null = null;
 
+  /** Decision log for local JSONL debugging. */
+  private readonly decisionLog: DecisionLog | null = null;
+
   /** Maximum age (ms) for a pending span before it is reaped with a timeout error. */
   private static readonly SPAN_TTL_MS = 60_000;
 
@@ -100,8 +108,12 @@ export class McpInterceptor {
       otelTls: options.otelTls,
     });
 
+    // Default fail mode: closed in enforce mode, open otherwise
+    const failMode = options.failMode ?? (this.mode === "enforce" ? "closed" : "open");
+
     this.validator = new TokenValidator({
       registryUrl: options.registryUrl,
+      failMode,
     });
 
     // Load YAML policy if configured
@@ -129,6 +141,12 @@ export class McpInterceptor {
     }
 
     this.enforcer = new PolicyEnforcer(this.mode, this.validator, policyConfig);
+
+    // Initialize decision log if configured
+    if (options.decisionLogPath) {
+      this.decisionLog = new DecisionLog({ filePath: options.decisionLogPath });
+      this.log(`Decision log: ${options.decisionLogPath}`);
+    }
   }
 
   /**
@@ -347,6 +365,9 @@ export class McpInterceptor {
    * Gracefully stop the child process.
    */
   async stop(): Promise<void> {
+    if (this.decisionLog) {
+      this.decisionLog.close();
+    }
     if (this.stopPolicyWatch) {
       this.stopPolicyWatch();
       this.stopPolicyWatch = null;
@@ -469,6 +490,19 @@ export class McpInterceptor {
             if (decision.action === "log_only") {
               this.log(`[monitor] ${decision.reason}`);
             }
+
+            // Log decision to JSONL file
+            if (this.decisionLog) {
+              this.decisionLog.logDecision({
+                agentId: claims?.agent?.name ?? 'unknown',
+                tool: toolName,
+                decision: decision.action,
+                reason: decision.reason,
+                latencyMs: 0,
+                policyRule: decision.policy_rule_name ?? null,
+                tokenVerified: claims !== null,
+              });
+            }
           }).catch(() => {
             // Best effort
           });
@@ -529,6 +563,19 @@ export class McpInterceptor {
             attributes[MCP_ATTR.EIGENT_DELEGATION_CHAIN] = claims.delegation.chain.join(" -> ");
           }
 
+          // Log decision to JSONL file for all enforce-mode decisions
+          if (this.decisionLog) {
+            this.decisionLog.logDecision({
+              agentId: claims?.agent?.name ?? 'unknown',
+              tool: toolName,
+              decision: decision.action,
+              reason: decision.reason,
+              latencyMs: 0,
+              policyRule: decision.policy_rule_name ?? null,
+              tokenVerified: claims !== null,
+            });
+          }
+
           if (decision.action === "deny") {
             // Create and immediately end a span for the denied request
             const span = this.telemetry.startRequestSpan(
@@ -536,20 +583,43 @@ export class McpInterceptor {
               msg.id,
               attributes,
             );
+
+            const agentName = claims?.agent?.name ?? "unknown";
+            const agentId = claims?.sub ?? this.options.agentId ?? "unknown";
+            const scopeList = claims?.scope ?? [];
+            const fixCommand = claims
+              ? `eigent delegate <parent-agent> ${agentName} --scope ${[...scopeList, toolName].join(",")}`
+              : `eigent issue <agent-name> --scope ${toolName}`;
+
+            const errorMessage =
+              `DENIED: Agent '${agentName}' cannot call '${toolName}'. ` +
+              `The tool is not in the agent's scope [${scopeList.join(", ")}]. ` +
+              `To add this permission, run: ${fixCommand}. ` +
+              `Docs: https://eigent.dev/concepts/permissions`;
+
             this.telemetry.endSpan(span, {
               code: -32001,
-              message: `Eigent: permission denied. ${decision.reason}`,
+              message: errorMessage,
             });
 
-            this.log(`[enforce] DENIED: ${decision.reason}`);
+            this.log(`[enforce] ${errorMessage}`);
 
-            // Synthesize JSON-RPC error and write directly to parent stdout
+            // Synthesize JSON-RPC error with structured data
             const errorResponse = JSON.stringify({
               jsonrpc: "2.0",
               id: msg.id,
               error: {
                 code: -32001,
-                message: `Eigent: permission denied. ${decision.reason}`,
+                message: "Eigent: permission denied",
+                data: {
+                  agent_id: agentId,
+                  agent_name: agentName,
+                  tool: toolName,
+                  scope: scopeList,
+                  reason: decision.reason,
+                  fix: fixCommand,
+                  docs: "https://eigent.dev/concepts/permissions",
+                },
               },
             });
 

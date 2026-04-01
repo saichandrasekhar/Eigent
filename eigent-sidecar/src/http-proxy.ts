@@ -388,10 +388,7 @@ export class HttpMcpProxy {
       responseHeaders["Mcp-Session-Id"] = upstreamSessionId;
     }
 
-    return c.newResponse(responseBody, {
-      status: upstreamRes.status,
-      headers: responseHeaders,
-    });
+    return c.newResponse(responseBody, upstreamRes.status as 200, responseHeaders);
   }
 
   /**
@@ -510,12 +507,9 @@ export class HttpMcpProxy {
       const ct = upstreamRes.headers.get("Content-Type");
       if (ct) responseHeaders["Content-Type"] = ct;
 
-      return c.newResponse(responseBody, {
-        status: upstreamRes.status,
-        headers: responseHeaders,
-      });
+      return c.newResponse(responseBody, upstreamRes.status as 200, responseHeaders);
     } catch {
-      return c.newResponse("Upstream MCP server unreachable", { status: 502 });
+      return c.newResponse("Upstream MCP server unreachable", 502 as 502);
     }
   }
 

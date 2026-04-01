@@ -808,6 +808,152 @@ app.post('/api/verify', async (c) => {
   });
 });
 
+// POST /api/explain — Detailed explanation of why a tool call would be allowed or denied
+app.post('/api/explain', async (c) => {
+  const body = await c.req.json();
+  const { agent_id, tool, token } = body as { agent_id?: string; tool?: string; token?: string };
+
+  if (!agent_id || !tool) {
+    return c.json({ error: 'agent_id and tool are required' }, 400);
+  }
+
+  const agent = getAgentById(agent_id);
+  if (!agent) {
+    return c.json({ error: `Agent '${agent_id}' not found` }, 404);
+  }
+
+  const agentScope: string[] = JSON.parse(agent.scope);
+  const allowed = agentScope.includes(tool) || agentScope.includes('*');
+  const chain = getDelegationChain(agent.id);
+
+  // Build chain nodes for display
+  const chainNodes = chain.map((a) => {
+    const nodeScope: string[] = JSON.parse(a.scope);
+    return {
+      type: a.parent_id ? 'agent' as const : 'agent' as const,
+      name: a.name,
+      scope: nodeScope,
+      delegation_depth: a.delegation_depth,
+      agent_id: a.id,
+      status: a.status,
+    };
+  });
+
+  // Add the human at the root
+  const humanNode = {
+    type: 'human' as const,
+    name: agent.human_email,
+    email: agent.human_email,
+  };
+
+  const fullChain = [humanNode, ...chainNodes];
+
+  const reason = allowed
+    ? `Tool '${tool}' is in agent scope [${agentScope.join(', ')}]`
+    : `Tool '${tool}' is not in agent scope [${agentScope.join(', ')}]`;
+
+  return c.json({
+    allowed,
+    agent_id: agent.id,
+    agent_name: agent.name,
+    tool,
+    scope: agentScope,
+    human_email: agent.human_email,
+    human_iss: agent.human_iss,
+    delegation_depth: agent.delegation_depth,
+    max_delegation_depth: agent.max_delegation_depth,
+    reason,
+    chain: fullChain,
+    policy_evaluations: [],
+    default_action: 'allow',
+  });
+});
+
+// GET /api/audit/:id/trace — Full trace for a specific audit event
+app.get('/api/audit/:id/trace', (c) => {
+  const eventId = c.req.param('id');
+
+  // Find the specific audit entry
+  const result = queryAuditLog({ limit: 1000 });
+  const entry = result.entries.find((e) => e.id === eventId);
+
+  if (!entry) {
+    return c.json({ error: `Audit event '${eventId}' not found` }, 404);
+  }
+
+  // Get the agent and delegation chain
+  const agent = getAgentById(entry.agent_id);
+  let chainNodes: Array<{
+    type: 'human' | 'agent';
+    name: string;
+    email?: string;
+    scope?: string[];
+    delegation_depth?: number;
+    agent_id?: string;
+    status?: string;
+  }> = [];
+
+  if (agent) {
+    const chain = getDelegationChain(agent.id);
+    const humanNode = {
+      type: 'human' as const,
+      name: agent.human_email,
+      email: agent.human_email,
+    };
+    const agentNodes = chain.map((a) => ({
+      type: 'agent' as const,
+      name: a.name,
+      scope: JSON.parse(a.scope) as string[],
+      delegation_depth: a.delegation_depth,
+      agent_id: a.id,
+      status: a.status,
+    }));
+    chainNodes = [humanNode, ...agentNodes];
+  }
+
+  // Parse details for reason and policy rule
+  let details: Record<string, unknown> | null = null;
+  if (entry.details) {
+    try {
+      details = JSON.parse(entry.details) as Record<string, unknown>;
+    } catch {
+      details = null;
+    }
+  }
+
+  const reason = details?.reason as string ?? null;
+  const policyRule = details?.policy_rule as string ?? null;
+
+  // Check audit integrity for this entry
+  let auditHash: string | null = null;
+  let hashVerified = false;
+  try {
+    const verifyResult = verifyAuditChain();
+    hashVerified = verifyResult.valid;
+    auditHash = `sha256:${crypto.createHash('sha256').update(JSON.stringify(entry)).digest('hex').slice(0, 32)}`;
+  } catch {
+    // integrity check unavailable
+  }
+
+  return c.json({
+    id: entry.id,
+    timestamp: entry.timestamp,
+    action: entry.action,
+    agent_id: entry.agent_id,
+    agent_name: agent?.name ?? entry.agent_id.slice(0, 12),
+    human_email: entry.human_email,
+    tool_name: entry.tool_name,
+    details,
+    delegation_chain: entry.delegation_chain ? JSON.parse(entry.delegation_chain) : null,
+    chain: chainNodes,
+    decision: entry.action.includes('blocked') ? 'deny' : entry.action.includes('allowed') ? 'allow' : null,
+    reason,
+    policy_rule: policyRule,
+    audit_hash: auditHash,
+    hash_verified: hashVerified,
+  });
+});
+
 // GET /api/audit — Query audit log
 app.get('/api/audit', (c) => {
   const agent_id = c.req.query('agent_id');

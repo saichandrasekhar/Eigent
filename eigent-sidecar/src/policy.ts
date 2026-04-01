@@ -148,7 +148,7 @@ export class PolicyEvaluator {
         const agentId = claims?.agent?.name ?? null;
         const patterns = Array.isArray(match.agent_id) ? match.agent_id : [match.agent_id];
         if (agentId === null) return false;
-        const agentMatched = patterns.some((p) => globMatch(p, agentId));
+        const agentMatched = patterns.some((p) => p !== undefined && globMatch(p, agentId as string));
         if (!agentMatched) return false;
       }
     }
