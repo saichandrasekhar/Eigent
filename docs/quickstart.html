@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Start — Eigent | Get Started in 5 Minutes</title>
+<meta name="description" content="Install Eigent, issue your first agent token, set up delegation chains, and enforce permissions in under 5 minutes.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#06060b;--surface:#0e1018;--surface-2:#151822;--surface-3:#1a1e2e;--accent:#7c6aef;--accent-dim:#5a4cc4;--accent-glow:rgba(124,106,239,.15);--cyan:#06b6d4;--cyan-dim:#0891b2;--cyan-glow:rgba(6,182,212,.12);--green:#10b981;--red:#ef4444;--text:#e8e6f0;--text-dim:#9896a8;--text-muted:#6b697a;--border:#1e2030;--border-accent:rgba(124,106,239,.25);--font-head:'Outfit',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'JetBrains Mono',monospace;--sidebar-w:260px}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);color:var(--text);background:var(--bg);line-height:1.7;font-size:15px;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none;transition:color .2s}a:hover{color:#a594ff}
+
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;transition:transform .3s ease}
+.sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.sidebar-logo svg{width:36px;height:36px;flex-shrink:0}
+.sidebar-logo span{font-family:var(--font-head);font-weight:600;font-size:18px;letter-spacing:2px;color:var(--text)}
+.sidebar-nav{flex:1;padding:16px 0;overflow-y:auto}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 24px;color:var(--text-dim);font-size:14px;font-weight:500;border-left:3px solid transparent;transition:all .2s}
+.sidebar-nav a:hover,.sidebar-nav a.active{color:var(--text);background:var(--accent-glow);border-left-color:var(--accent)}
+.sidebar-nav a .nav-icon{width:18px;height:18px;opacity:.6;flex-shrink:0}
+.sidebar-nav a:hover .nav-icon,.sidebar-nav a.active .nav-icon{opacity:1}
+.sidebar-cta{padding:16px 24px;border-top:1px solid var(--border)}
+.sidebar-cta a{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--cyan));color:#fff;transition:opacity .2s}
+.sidebar-cta a:hover{opacity:.9;color:#fff}
+.nav-toggle{display:none;position:fixed;top:16px;left:16px;z-index:200;width:40px;height:40px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+
+.main{margin-left:var(--sidebar-w);min-height:100vh}
+.page-header{padding:80px 60px 40px;background:radial-gradient(ellipse at 30% 20%,rgba(124,106,239,.06),transparent 60%),var(--bg)}
+.page-header .section-label{font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;font-family:var(--font-mono)}
+.page-header h1{font-family:var(--font-head);font-weight:700;font-size:clamp(32px,4vw,48px);margin-bottom:16px}
+.page-header p{font-size:17px;color:var(--text-dim);max-width:640px}
+
+.section{padding:60px}
+.section-alt{background:var(--surface)}
+.section h2{font-family:var(--font-head);font-weight:700;font-size:24px;margin-bottom:16px}
+.section h3{font-family:var(--font-head);font-weight:600;font-size:18px;margin-bottom:12px;color:var(--text)}
+.section p{color:var(--text-dim);margin-bottom:16px;max-width:720px}
+
+pre{background:#0a0a12;border:1px solid var(--border);border-radius:10px;padding:20px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.9;position:relative;margin-bottom:24px}
+code{font-family:var(--font-mono);font-size:13px}
+.inline-code{background:var(--surface-2);padding:2px 8px;border-radius:4px;font-size:12px;color:var(--cyan)}
+.copy-btn{position:absolute;top:10px;right:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);font-size:11px;cursor:pointer;font-family:var(--font-mono);transition:all .2s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.prompt{color:var(--cyan)}.cmd{color:var(--text)}.flag{color:var(--accent)}.output{color:var(--text-dim)}.success{color:var(--green)}.denied{color:var(--red)}.comment{color:var(--text-muted);font-style:italic}
+.kw{color:var(--accent)}.str{color:var(--green)}.cm{color:var(--text-muted)}.fn{color:var(--cyan)}.num{color:#f59e0b}.key{color:#e879f9}
+
+/* Steps */
+.qs-steps{counter-reset:qs-step}
+.qs-step{margin-bottom:48px;padding-bottom:48px;border-bottom:1px solid var(--border)}
+.qs-step:last-child{border-bottom:none}
+.qs-step-header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.qs-step-num{counter-increment:qs-step;width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--border-accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-weight:700;font-size:16px;color:var(--accent);flex-shrink:0}
+.qs-step-num::after{content:counter(qs-step)}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;font-family:var(--font-mono)}
+.badge-yes{background:rgba(16,185,129,.15);color:var(--green)}
+.badge-no{background:rgba(239,68,68,.12);color:var(--red)}
+.badge-info{background:rgba(6,182,212,.12);color:var(--cyan)}
+
+.glow-line{height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--cyan),transparent);opacity:.3;margin:0}
+.footer{padding:40px 60px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--text-muted)}
+.footer-links{display:flex;gap:20px}.footer-links a{color:var(--text-muted);font-size:13px}.footer-links a:hover{color:var(--accent)}
+
+.prereq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:16px 0 24px}
+.prereq-item{padding:16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-size:13px}
+.prereq-item strong{font-family:var(--font-mono);color:var(--cyan);display:block;margin-bottom:4px}
+
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}
+  .nav-toggle{display:flex}.main{margin-left:0}
+  .page-header,.section,.footer{padding-left:24px;padding-right:24px}
+  .page-header{padding-top:70px}
+}
+</style>
+</head>
+<body>
+
+<button class="nav-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle navigation">&#9776;</button>
+
+<nav class="sidebar">
+  <a href="index.html" class="sidebar-logo">
+    <svg viewBox="0 0 128 128" width="36" height="36"><defs><linearGradient id="sb1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c6aef"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="28" fill="url(#sb1)"/><g transform="translate(64,58)"><rect x="-28" y="-26" width="5" height="52" rx="2.5" fill="#fff"/><rect x="-28" y="-26" width="56" height="5" rx="2.5" fill="#fff"/><rect x="-28" y="-2" width="40" height="5" rx="2.5" fill="#fff" opacity=".8"/><rect x="-28" y="22" width="56" height="5" rx="2.5" fill="#fff"/></g></svg>
+    <span>EIGENT</span>
+  </a>
+  <div class="sidebar-nav">
+    <a href="index.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>Home</a>
+    <a href="how-it-works.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>How It Works</a>
+    <a href="quickstart.html" class="active"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Quick Start</a>
+    <a href="concepts.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>Concepts</a>
+    <a href="compliance.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>Compliance</a>
+    <a href="api.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>API Reference</a>
+  </div>
+  <div class="sidebar-cta"><a href="https://github.com/AgenTrust-AI/eigent" target="_blank"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>GitHub</a></div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <div class="section-label">Get Started</div>
+    <h1>Quick Start</h1>
+    <p>From zero to enforced delegation chains in 5 minutes. No infrastructure required &mdash; Eigent runs locally with a built-in registry.</p>
+  </div>
+
+  <div class="glow-line"></div>
+
+  <section class="section">
+    <h2>Prerequisites</h2>
+    <div class="prereq-grid">
+      <div class="prereq-item">
+        <strong>Node.js 18+</strong>
+        <span style="color:var(--text-dim)">Runtime for CLI and registry</span>
+      </div>
+      <div class="prereq-item">
+        <strong>npm or yarn</strong>
+        <span style="color:var(--text-dim)">Package manager</span>
+      </div>
+      <div class="prereq-item">
+        <strong>Claude Desktop <span class="badge badge-info">optional</span></strong>
+        <span style="color:var(--text-dim)">For MCP sidecar integration</span>
+      </div>
+    </div>
+
+    <div class="qs-steps">
+
+      <!-- Step 1: Install -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Install the CLI</h3>
+        </div>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="prompt">$ </span><span class="cmd">npm install -g @eigent/cli</span>
+
+<span class="output">added 42 packages in 3s</span>
+<span class="output">1 package is looking for funding</span>
+
+<span class="comment"># Verify installation</span>
+<span class="prompt">$ </span><span class="cmd">eigent --version</span>
+<span class="output">eigent v0.3.0</span></pre>
+      </div>
+
+      <!-- Step 2: Init -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Initialize a local registry</h3>
+        </div>
+        <p>This creates a local Eigent registry with a fresh ECDSA keypair for signing tokens. In production, you'd point to a shared registry.</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="prompt">$ </span><span class="cmd">eigent init</span>
+
+<span class="success">&#9989; Registry initialized at ~/.eigent/</span>
+<span class="output">   Keypair:  ES256 (P-256 ECDSA)</span>
+<span class="output">   JWKS:     ~/.eigent/jwks.json</span>
+<span class="output">   Database: ~/.eigent/registry.db</span>
+<span class="output">   Config:   ~/.eigent/config.yaml</span></pre>
+      </div>
+
+      <!-- Step 3: Login -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Authenticate (establish the root of trust)</h3>
+        </div>
+        <p>Login establishes your human identity as the root of the delegation chain. In dev mode, this uses a local identity. In production, use OIDC.</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="comment"># Development mode (local identity)</span>
+<span class="prompt">$ </span><span class="cmd">eigent login</span>
+
+<span class="success">&#9989; Authenticated as dev@localhost</span>
+<span class="output">   Mode: local development</span>
+<span class="output">   Session expires: 8 hours</span>
+
+<span class="comment"># Production mode (OIDC)</span>
+<span class="prompt">$ </span><span class="cmd">eigent login</span> <span class="flag">--provider okta --domain company.okta.com</span>
+
+<span class="success">&#9989; Authenticated as alice@company.com</span>
+<span class="output">   Provider: Okta</span></pre>
+      </div>
+
+      <!-- Step 4: Issue -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Issue a token for an agent</h3>
+        </div>
+        <p>Create a cryptographically signed token that binds the agent's identity to yours. Specify exactly which scopes (tool permissions) the agent is allowed.</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="prompt">$ </span><span class="cmd">eigent issue</span> <span class="flag">code-reviewer \
+    --scope read_file,run_tests \
+    --ttl 24h</span>
+
+<span class="success">&#9989; Token issued for agent "code-reviewer"</span>
+<span class="output">   Agent ID:  agt_x7k9m2p4</span>
+<span class="output">   Scopes:    read_file, run_tests</span>
+<span class="output">   Bound to:  dev@localhost</span>
+<span class="output">   Chain:     dev@localhost &rarr; code-reviewer</span>
+<span class="output">   Depth:     1/5</span>
+<span class="output">   Expires:   2025-03-16T14:00:00Z</span>
+<span class="output">   Token:     eyJhbGciOiJFUzI1NiIs...</span></pre>
+      </div>
+
+      <!-- Step 5: Delegate -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Delegate to a sub-agent (with narrowed scope)</h3>
+        </div>
+        <p>Agent <code class="inline-code">code-reviewer</code> can delegate to <code class="inline-code">test-runner</code>, but only with a subset of its own permissions. You cannot grant more than you have.</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="prompt">$ </span><span class="cmd">eigent delegate</span> <span class="flag">code-reviewer test-runner --scope run_tests</span>
+
+<span class="success">&#9989; Delegated "test-runner" from "code-reviewer"</span>
+<span class="output">   Scopes:    run_tests</span>
+<span class="output">   Narrowed:  [read_file, run_tests] &rarr; [run_tests]</span>
+<span class="output">   Chain:     dev@localhost &rarr; code-reviewer &rarr; test-runner</span>
+<span class="output">   Depth:     2/5</span></pre>
+        <p style="margin-top:16px">Try granting a scope the parent doesn't have:</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="prompt">$ </span><span class="cmd">eigent delegate</span> <span class="flag">code-reviewer deployer --scope deploy_prod</span>
+
+<span class="denied">&#10060; ERROR: Cannot delegate scope "deploy_prod"</span>
+<span class="denied">   Parent "code-reviewer" only has: [read_file, run_tests]</span>
+<span class="denied">   Requested "deploy_prod" is not a subset</span></pre>
+      </div>
+
+      <!-- Step 6: Verify -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Verify permissions</h3>
+        </div>
+        <p>Check whether an agent is allowed to perform a specific action. This is what the sidecar does automatically on every tool call.</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="comment"># Can test-runner delete files?</span>
+<span class="prompt">$ </span><span class="cmd">eigent verify</span> <span class="flag">test-runner delete_file</span>
+
+<span class="denied">&#10060; DENIED</span>
+<span class="denied">   Agent:     test-runner</span>
+<span class="denied">   Requested: delete_file</span>
+<span class="denied">   Available: [run_tests]</span>
+<span class="denied">   Chain:     dev@localhost &rarr; code-reviewer &rarr; test-runner</span>
+
+<span class="comment"># Can test-runner run tests?</span>
+<span class="prompt">$ </span><span class="cmd">eigent verify</span> <span class="flag">test-runner run_tests</span>
+
+<span class="success">&#9989; ALLOWED</span>
+<span class="success">   Agent:     test-runner</span>
+<span class="success">   Scope:     run_tests</span>
+<span class="success">   Chain:     dev@localhost &rarr; code-reviewer &rarr; test-runner</span></pre>
+      </div>
+
+      <!-- Step 7: MCP Integration -->
+      <div class="qs-step">
+        <div class="qs-step-header">
+          <div class="qs-step-num"></div>
+          <h3>Wrap your MCP server with the Eigent sidecar</h3>
+        </div>
+        <p>Add the Eigent sidecar to your Claude Desktop configuration. The sidecar sits between Claude and your MCP server, enforcing permissions on every tool call.</p>
+        <p>Update your <code class="inline-code">claude_desktop_config.json</code>:</p>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"filesystem"</span>: {
+      <span class="key">"command"</span>: <span class="str">"eigent"</span>,
+      <span class="key">"args"</span>: [
+        <span class="str">"sidecar"</span>,
+        <span class="str">"--agent"</span>, <span class="str">"code-reviewer"</span>,
+        <span class="str">"--wrap"</span>, <span class="str">"npx"</span>,
+        <span class="str">"--"</span>,
+        <span class="str">"@modelcontextprotocol/server-filesystem"</span>,
+        <span class="str">"/Users/alice/projects"</span>
+      ]
+    }
+  }
+}</pre>
+        <p style="margin-top:16px">Before (no Eigent):</p>
+        <pre style="border-color:rgba(239,68,68,.3)"><span class="cm">// Direct MCP access &mdash; no identity, no scope, no audit</span>
+{
+  <span class="key">"command"</span>: <span class="str">"npx"</span>,
+  <span class="key">"args"</span>: [<span class="str">"@modelcontextprotocol/server-filesystem"</span>, <span class="str">"/Users/alice/projects"</span>]
+}</pre>
+        <p>After (with Eigent):</p>
+        <pre style="border-color:rgba(16,185,129,.3)"><span class="cm">// Eigent sidecar wraps MCP &mdash; identity bound, scoped, audited</span>
+{
+  <span class="key">"command"</span>: <span class="str">"eigent"</span>,
+  <span class="key">"args"</span>: [<span class="str">"sidecar"</span>, <span class="str">"--agent"</span>, <span class="str">"code-reviewer"</span>, <span class="str">"--wrap"</span>, <span class="str">"npx"</span>,
+           <span class="str">"--"</span>, <span class="str">"@modelcontextprotocol/server-filesystem"</span>, <span class="str">"/Users/alice/projects"</span>]
+}</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="glow-line"></div>
+
+  <section class="section section-alt" style="text-align:center;padding:60px">
+    <h2>What's Next?</h2>
+    <p style="margin:12px auto 24px;text-align:center">Dive deeper into the architecture or explore the API.</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <a href="how-it-works.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:#fff">How It Works</a>
+      <a href="concepts.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;background:var(--surface-2);color:var(--text);border:1px solid var(--border)">Core Concepts</a>
+      <a href="api.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;background:var(--surface-2);color:var(--text);border:1px solid var(--border)">API Reference</a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div>&copy; 2025 Eigent. Apache 2.0 License.</div>
+    <div class="footer-links">
+      <a href="https://github.com/AgenTrust-AI/eigent" target="_blank">GitHub</a>
+      <a href="how-it-works.html">How It Works</a>
+      <a href="concepts.html">Concepts</a>
+    </div>
+  </footer>
+</main>
+
+<script>
+function copyCode(btn){const pre=btn.parentElement;const code=pre.textContent.replace('Copy','').trim();navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>{btn.textContent='Copy'},2000)})}
+document.querySelectorAll('.sidebar-nav a').forEach(a=>{a.addEventListener('click',()=>{document.querySelector('.sidebar').classList.remove('open')})});
+</script>
+</body>
+</html>

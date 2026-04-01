@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core Concepts — Eigent | Identity, Delegation, Enforcement</title>
+<meta name="description" content="Understand Eigent's core concepts: Eigent Tokens, Delegation Chains, Scope Intersection, Cascade Revocation, and Merkle-chained Audit Trails.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#06060b;--surface:#0e1018;--surface-2:#151822;--surface-3:#1a1e2e;--accent:#7c6aef;--accent-dim:#5a4cc4;--accent-glow:rgba(124,106,239,.15);--cyan:#06b6d4;--cyan-dim:#0891b2;--cyan-glow:rgba(6,182,212,.12);--green:#10b981;--red:#ef4444;--yellow:#eab308;--text:#e8e6f0;--text-dim:#9896a8;--text-muted:#6b697a;--border:#1e2030;--border-accent:rgba(124,106,239,.25);--font-head:'Outfit',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'JetBrains Mono',monospace;--sidebar-w:260px}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);color:var(--text);background:var(--bg);line-height:1.7;font-size:15px;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none;transition:color .2s}a:hover{color:#a594ff}
+
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;transition:transform .3s ease}
+.sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.sidebar-logo svg{width:36px;height:36px;flex-shrink:0}
+.sidebar-logo span{font-family:var(--font-head);font-weight:600;font-size:18px;letter-spacing:2px;color:var(--text)}
+.sidebar-nav{flex:1;padding:16px 0;overflow-y:auto}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 24px;color:var(--text-dim);font-size:14px;font-weight:500;border-left:3px solid transparent;transition:all .2s}
+.sidebar-nav a:hover,.sidebar-nav a.active{color:var(--text);background:var(--accent-glow);border-left-color:var(--accent)}
+.sidebar-nav a .nav-icon{width:18px;height:18px;opacity:.6;flex-shrink:0}
+.sidebar-nav a:hover .nav-icon,.sidebar-nav a.active .nav-icon{opacity:1}
+.sidebar-cta{padding:16px 24px;border-top:1px solid var(--border)}
+.sidebar-cta a{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--cyan));color:#fff;transition:opacity .2s}
+.sidebar-cta a:hover{opacity:.9;color:#fff}
+.nav-toggle{display:none;position:fixed;top:16px;left:16px;z-index:200;width:40px;height:40px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+
+.main{margin-left:var(--sidebar-w);min-height:100vh}
+.page-header{padding:80px 60px 40px;background:radial-gradient(ellipse at 30% 20%,rgba(124,106,239,.06),transparent 60%),var(--bg)}
+.page-header .section-label{font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;font-family:var(--font-mono)}
+.page-header h1{font-family:var(--font-head);font-weight:700;font-size:clamp(32px,4vw,48px);margin-bottom:16px}
+.page-header p{font-size:17px;color:var(--text-dim);max-width:640px}
+
+.section{padding:60px}
+.section-alt{background:var(--surface)}
+.section h2{font-family:var(--font-head);font-weight:700;font-size:28px;margin-bottom:16px}
+.section h3{font-family:var(--font-head);font-weight:600;font-size:20px;margin-bottom:12px;color:var(--text)}
+.section p{color:var(--text-dim);margin-bottom:16px;max-width:720px;line-height:1.7}
+
+pre{background:#0a0a12;border:1px solid var(--border);border-radius:10px;padding:20px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.8;position:relative;margin-bottom:16px}
+code{font-family:var(--font-mono);font-size:13px}
+.inline-code{background:var(--surface-2);padding:2px 8px;border-radius:4px;font-size:12px;color:var(--cyan)}
+.copy-btn{position:absolute;top:10px;right:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);font-size:11px;cursor:pointer;font-family:var(--font-mono);transition:all .2s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.kw{color:var(--accent)}.str{color:var(--green)}.cm{color:var(--text-muted)}.fn{color:var(--cyan)}.num{color:#f59e0b}.key{color:#e879f9}
+
+/* Concept cards */
+.concept{margin-bottom:64px;padding-bottom:64px;border-bottom:1px solid var(--border)}
+.concept:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.concept-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;font-family:var(--font-mono);margin-bottom:16px}
+
+/* Diagrams */
+.diagram{padding:24px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin:20px 0}
+.diagram-title{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px}
+
+/* Token structure visual */
+.token-visual{display:flex;gap:4px;margin:16px 0;flex-wrap:wrap}
+.token-part{padding:12px 16px;border-radius:8px;font-family:var(--font-mono);font-size:12px;flex:1;min-width:140px}
+.token-header{background:rgba(124,106,239,.15);border:1px solid rgba(124,106,239,.3);color:var(--accent)}
+.token-payload{background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.3);color:var(--cyan)}
+.token-sig{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.token-part .part-label{font-weight:600;margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+.token-part .part-content{font-size:11px;color:var(--text-dim);line-height:1.5}
+
+/* Chain visual */
+.chain-vis{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:16px 0}
+.chain-vis-node{padding:10px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-family:var(--font-mono);font-size:12px;text-align:center}
+.chain-vis-arrow{padding:0 8px;color:var(--text-muted);font-size:16px}
+.chain-vis-node.revoked{border-color:var(--red);opacity:.5;text-decoration:line-through}
+
+/* Venn diagram (CSS) */
+.venn{display:flex;align-items:center;justify-content:center;gap:0;margin:24px 0;position:relative;height:180px}
+.venn-circle{width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.4;position:absolute}
+.venn-circle:nth-child(1){background:rgba(124,106,239,.15);border:1px solid rgba(124,106,239,.3);left:calc(50% - 120px)}
+.venn-circle:nth-child(2){background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.3);left:calc(50% - 40px)}
+.venn-circle:nth-child(3){background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);left:calc(50% + 40px)}
+.venn-center{position:absolute;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.1);backdrop-filter:blur(4px);padding:6px 10px;border-radius:6px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:#fff;z-index:2}
+
+.glow-line{height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--cyan),transparent);opacity:.3;margin:0}
+.footer{padding:40px 60px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--text-muted)}
+.footer-links{display:flex;gap:20px}.footer-links a{color:var(--text-muted);font-size:13px}.footer-links a:hover{color:var(--accent)}
+
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}
+  .nav-toggle{display:flex}.main{margin-left:0}
+  .page-header,.section,.footer{padding-left:24px;padding-right:24px}
+  .page-header{padding-top:70px}
+  .token-visual{flex-direction:column}
+  .venn{height:auto;flex-direction:column;position:static;gap:8px}
+  .venn-circle{position:static;width:120px;height:120px}
+  .venn-center{position:static;transform:none}
+}
+</style>
+</head>
+<body>
+
+<button class="nav-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle navigation">&#9776;</button>
+
+<nav class="sidebar">
+  <a href="index.html" class="sidebar-logo">
+    <svg viewBox="0 0 128 128" width="36" height="36"><defs><linearGradient id="sb1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c6aef"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="28" fill="url(#sb1)"/><g transform="translate(64,58)"><rect x="-28" y="-26" width="5" height="52" rx="2.5" fill="#fff"/><rect x="-28" y="-26" width="56" height="5" rx="2.5" fill="#fff"/><rect x="-28" y="-2" width="40" height="5" rx="2.5" fill="#fff" opacity=".8"/><rect x="-28" y="22" width="56" height="5" rx="2.5" fill="#fff"/></g></svg>
+    <span>EIGENT</span>
+  </a>
+  <div class="sidebar-nav">
+    <a href="index.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>Home</a>
+    <a href="how-it-works.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>How It Works</a>
+    <a href="quickstart.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Quick Start</a>
+    <a href="concepts.html" class="active"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>Concepts</a>
+    <a href="compliance.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>Compliance</a>
+    <a href="api.html"><svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>API Reference</a>
+  </div>
+  <div class="sidebar-cta"><a href="https://github.com/AgenTrust-AI/eigent" target="_blank"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>GitHub</a></div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <div class="section-label">Core Concepts</div>
+    <h1>How Eigent Thinks About Trust</h1>
+    <p>Five primitives that together solve the agent identity problem: tokens, chains, intersection, revocation, and audit.</p>
+  </div>
+
+  <div class="glow-line"></div>
+
+  <section class="section">
+
+    <!-- Concept 1: Eigent Token -->
+    <div class="concept">
+      <div class="concept-badge" style="background:rgba(124,106,239,.15);color:var(--accent)">&#128272; PRIMITIVE 01</div>
+      <h2>Eigent Token</h2>
+      <p>An Eigent token is a JWS (JSON Web Signature) that cryptographically binds an agent's identity to the human who authorized it. Unlike API keys or bearer tokens, an Eigent token carries its entire provenance: who created it, what it's allowed to do, and where it sits in the delegation chain.</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Token Structure</div>
+        <div class="token-visual">
+          <div class="token-part token-header">
+            <div class="part-label">Header</div>
+            <div class="part-content">
+              alg: ES256<br>
+              typ: eigent+jwt<br>
+              kid: registry key ID
+            </div>
+          </div>
+          <div class="token-part token-payload">
+            <div class="part-label">Payload (Claims)</div>
+            <div class="part-content">
+              sub: agent identity<br>
+              scope: [allowed actions]<br>
+              parent: who delegated<br>
+              chain: full ancestry<br>
+              depth: hop count / max
+            </div>
+          </div>
+          <div class="token-part token-sig">
+            <div class="part-label">Signature</div>
+            <div class="part-content">
+              ES256 (P-256 ECDSA)<br>
+              Verifiable via registry<br>
+              JWKS endpoint
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="cm">// Decoded Eigent Token</span>
+{
+  <span class="cm">// Header</span>
+  <span class="key">"alg"</span>: <span class="str">"ES256"</span>,
+  <span class="key">"typ"</span>: <span class="str">"eigent+jwt"</span>,
+
+  <span class="cm">// Payload</span>
+  <span class="key">"sub"</span>:       <span class="str">"agent:code-reviewer"</span>,          <span class="cm">// Agent identity</span>
+  <span class="key">"iss"</span>:       <span class="str">"https://registry.eigent.dev"</span>,   <span class="cm">// Issuing registry</span>
+  <span class="key">"iat"</span>:       <span class="num">1711900800</span>,                     <span class="cm">// Issued at</span>
+  <span class="key">"exp"</span>:       <span class="num">1711987200</span>,                     <span class="cm">// Expires at</span>
+  <span class="key">"scope"</span>:     [<span class="str">"read_file"</span>, <span class="str">"run_tests"</span>],    <span class="cm">// Allowed actions</span>
+  <span class="key">"parent"</span>:    <span class="str">"human:alice@company.com"</span>,       <span class="cm">// Direct parent</span>
+  <span class="key">"chain"</span>:     [<span class="str">"human:alice@company.com"</span>],      <span class="cm">// Full ancestry</span>
+  <span class="key">"depth"</span>:     <span class="num">1</span>,                              <span class="cm">// Current depth</span>
+  <span class="key">"max_depth"</span>: <span class="num">5</span>                               <span class="cm">// Maximum allowed</span>
+}</pre>
+
+      <p><strong>Key properties:</strong></p>
+      <ul style="color:var(--text-dim);padding-left:20px;margin-bottom:16px">
+        <li>Tokens are <strong>signed by the registry</strong>, not by the agent itself. This prevents token forgery.</li>
+        <li>The <code class="inline-code">chain</code> field traces all the way back to the human. No orphaned agents.</li>
+        <li>The <code class="inline-code">scope</code> field is an explicit allowlist. Anything not listed is denied by default.</li>
+        <li>Tokens expire. There are no permanent agent credentials.</li>
+      </ul>
+    </div>
+
+    <!-- Concept 2: Delegation Chain -->
+    <div class="concept">
+      <div class="concept-badge" style="background:rgba(6,182,212,.12);color:var(--cyan)">&#128279; PRIMITIVE 02</div>
+      <h2>Delegation Chains</h2>
+      <p>A delegation chain is the ordered sequence of trust relationships from a human to the agent performing an action. When Agent A delegates to Agent B, it creates a new link in the chain. The fundamental rule: <strong>permissions can only narrow, never widen.</strong></p>
+
+      <div class="diagram">
+        <div class="diagram-title">Permission Narrowing at Each Hop</div>
+        <div style="margin-bottom:12px">
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:inline-block;width:130px">&#128100; Alice</span>
+          <span style="display:inline-block;height:10px;width:100%;max-width:400px;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:5px;vertical-align:middle"></span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-left:8px">read, write, test, deploy</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:inline-block;width:130px">&#129302; code-reviewer</span>
+          <span style="display:inline-block;height:10px;width:75%;max-width:300px;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:5px;vertical-align:middle"></span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-left:8px">read, write, test</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:inline-block;width:130px">&#129302; test-runner</span>
+          <span style="display:inline-block;height:10px;width:25%;max-width:100px;background:var(--green);border-radius:5px;vertical-align:middle"></span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-left:8px">test</span>
+        </div>
+        <div>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:inline-block;width:130px">&#128683; delete_file</span>
+          <span style="display:inline-block;height:10px;width:0;border:1px dashed var(--red);border-radius:5px;vertical-align:middle;margin-right:4px"></span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--red);margin-left:8px">BLOCKED</span>
+        </div>
+      </div>
+
+      <p><strong>Chain invariants:</strong></p>
+      <ul style="color:var(--text-dim);padding-left:20px;margin-bottom:16px">
+        <li><strong>Monotonic narrowing:</strong> <code class="inline-code">child.scope &sube; parent.scope</code> at every hop</li>
+        <li><strong>Depth limits:</strong> <code class="inline-code">max_depth</code> prevents unbounded chains (default: 5)</li>
+        <li><strong>Ancestry preservation:</strong> The full chain is stored in the token, not just the direct parent</li>
+        <li><strong>No cycles:</strong> An agent cannot appear twice in its own chain</li>
+      </ul>
+    </div>
+
+    <!-- Concept 3: Scope Intersection -->
+    <div class="concept">
+      <div class="concept-badge" style="background:rgba(245,158,11,.12);color:var(--yellow)">&#128736; PRIMITIVE 03</div>
+      <h2>3-Way Scope Intersection</h2>
+      <p>When the sidecar evaluates a tool call, it doesn't just check the agent's token. It performs a 3-way intersection of three independent permission sources. The agent can only perform an action if <strong>all three</strong> agree.</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Effective Scope = Intersection of Three Sources</div>
+        <div class="venn">
+          <div class="venn-circle"><span style="color:var(--accent)">Human<br>Permissions</span></div>
+          <div class="venn-circle"><span style="color:var(--cyan)">Agent<br>Capabilities</span></div>
+          <div class="venn-circle"><span style="color:var(--green)">Resource<br>Sensitivity</span></div>
+          <div class="venn-center">Effective Scope</div>
+        </div>
+      </div>
+
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="cm">// 3-way intersection example</span>
+
+<span class="fn">human_permissions</span>  = [<span class="str">"read"</span>, <span class="str">"write"</span>, <span class="str">"test"</span>, <span class="str">"deploy"</span>]
+<span class="fn">agent_token_scope</span>  = [<span class="str">"read"</span>, <span class="str">"write"</span>, <span class="str">"test"</span>]
+<span class="fn">resource_allows</span>    = [<span class="str">"read"</span>, <span class="str">"test"</span>]  <span class="cm">// resource is read-only + testable</span>
+
+<span class="fn">effective_scope</span>    = human <span class="key">&#8745;</span> agent <span class="key">&#8745;</span> resource
+                   = [<span class="str">"read"</span>, <span class="str">"test"</span>]
+
+<span class="cm">// "write" is DENIED even though human and agent allow it,</span>
+<span class="cm">// because the resource doesn't permit writes.</span></pre>
+    </div>
+
+    <!-- Concept 4: Cascade Revocation -->
+    <div class="concept">
+      <div class="concept-badge" style="background:rgba(239,68,68,.12);color:var(--red)">&#128165; PRIMITIVE 04</div>
+      <h2>Cascade Revocation</h2>
+      <p>When you revoke an agent's token, <strong>every agent it delegated to is also revoked</strong>, recursively. There are no orphaned sub-agents. Revoking the root human session kills the entire tree.</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Before Revocation</div>
+        <div class="chain-vis">
+          <div class="chain-vis-node" style="border-color:var(--accent);color:var(--accent)">&#128100; Alice</div>
+          <div class="chain-vis-arrow">&rarr;</div>
+          <div class="chain-vis-node" style="border-color:var(--cyan);color:var(--cyan)">&#129302; Agent A</div>
+          <div class="chain-vis-arrow">&rarr;</div>
+          <div class="chain-vis-node" style="border-color:var(--cyan);color:var(--cyan)">&#129302; Agent B</div>
+          <div class="chain-vis-arrow">&rarr;</div>
+          <div class="chain-vis-node" style="border-color:var(--green);color:var(--green)">&#129302; Agent C</div>
+        </div>
+      </div>
+
+      <div class="diagram">
+        <div class="diagram-title">After Revoking Agent A</div>
+        <div class="chain-vis">
+          <div class="chain-vis-node" style="border-color:var(--accent);color:var(--accent)">&#128100; Alice</div>
+          <div class="chain-vis-arrow">&rarr;</div>
+          <div class="chain-vis-node revoked" style="color:var(--red)">&#10060; Agent A</div>
+          <div class="chain-vis-arrow" style="color:var(--red)">&rarr;</div>
+          <div class="chain-vis-node revoked" style="color:var(--red)">&#10060; Agent B</div>
+          <div class="chain-vis-arrow" style="color:var(--red)">&rarr;</div>
+          <div class="chain-vis-node revoked" style="color:var(--red)">&#10060; Agent C</div>
+        </div>
+      </div>
+
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="prompt">$ </span><span class="fn">eigent revoke</span> <span class="flag">agent-a --cascade</span>
+
+<span style="color:var(--red)">&#10060; Revoked "agent-a"</span>
+<span style="color:var(--red)">   Cascade: also revoked 2 child agents</span>
+<span style="color:var(--red)">   - agent-b (depth 2)</span>
+<span style="color:var(--red)">   - agent-c (depth 3)</span>
+<span class="output">   Audit event: evt_revoke_cascade_f8a2c1</span></pre>
+
+      <p><strong>Revocation guarantees:</strong></p>
+      <ul style="color:var(--text-dim);padding-left:20px;margin-bottom:16px">
+        <li>Revocation is <strong>immediate</strong> &mdash; the registry invalidates the token and all descendants</li>
+        <li>The sidecar checks revocation status on every request (online validation or CRL cache)</li>
+        <li>Revocation events are recorded in the audit trail with cascade details</li>
+        <li>Revoked tokens cannot be re-used even if the signature is still valid</li>
+      </ul>
+    </div>
+
+    <!-- Concept 5: Audit Trail -->
+    <div class="concept">
+      <div class="concept-badge" style="background:rgba(16,185,129,.12);color:var(--green)">&#128209; PRIMITIVE 05</div>
+      <h2>Merkle-Chained Audit Trail</h2>
+      <p>Every event in Eigent &mdash; token issuance, delegation, verification, allow, deny, revocation &mdash; is recorded as an entry in a Merkle-chained log. Each entry includes the hash of the previous entry, creating a tamper-evident chain. If any entry is modified or deleted, the hash chain breaks.</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Merkle Chain Structure</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">
+          <div style="flex:1;min-width:180px;padding:16px;border-radius:8px;background:var(--bg);border:1px solid var(--border)">
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--accent);margin-bottom:6px">EVENT 001</div>
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px">TOKEN_ISSUED</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">prev: 0x0000...</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--green)">hash: 0x9f86...</div>
+          </div>
+          <div style="display:flex;align-items:center;color:var(--text-muted);font-size:16px">&rarr;</div>
+          <div style="flex:1;min-width:180px;padding:16px;border-radius:8px;background:var(--bg);border:1px solid var(--border)">
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--cyan);margin-bottom:6px">EVENT 002</div>
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px">DELEGATION</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">prev: 0x9f86...</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--green)">hash: 0x4e07...</div>
+          </div>
+          <div style="display:flex;align-items:center;color:var(--text-muted);font-size:16px">&rarr;</div>
+          <div style="flex:1;min-width:180px;padding:16px;border-radius:8px;background:var(--bg);border:1px solid var(--border)">
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--red);margin-bottom:6px">EVENT 003</div>
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px">SCOPE_DENIED</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">prev: 0x4e07...</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--green)">hash: 0xa3f2...</div>
+          </div>
+        </div>
+      </div>
+
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="cm">// Audit trail entry</span>
+{
+  <span class="key">"id"</span>:         <span class="str">"evt_003_a3f2c1d8"</span>,
+  <span class="key">"timestamp"</span>:  <span class="str">"2025-03-15T14:32:01.847Z"</span>,
+  <span class="key">"type"</span>:       <span class="str">"SCOPE_DENIED"</span>,
+  <span class="key">"agent"</span>:      <span class="str">"test-runner"</span>,
+  <span class="key">"action"</span>:     <span class="str">"delete_file"</span>,
+  <span class="key">"chain"</span>:      [<span class="str">"alice"</span>, <span class="str">"code-reviewer"</span>, <span class="str">"test-runner"</span>],
+  <span class="key">"detail"</span>:     <span class="str">"scope 'delete_file' not in [run_tests]"</span>,
+  <span class="key">"prev_hash"</span>:  <span class="str">"sha256:4e07408..."</span>,
+  <span class="key">"hash"</span>:       <span class="str">"sha256:a3f2c1d8..."</span>,
+  <span class="key">"compliance"</span>: {
+    <span class="key">"eu_ai_act"</span>: [<span class="str">"Art.9"</span>, <span class="str">"Art.12"</span>, <span class="str">"Art.14"</span>],
+    <span class="key">"soc2"</span>:      [<span class="str">"CC6.1"</span>, <span class="str">"CC7.2"</span>]
+  }
+}</pre>
+
+      <p><strong>Audit properties:</strong></p>
+      <ul style="color:var(--text-dim);padding-left:20px">
+        <li><strong>Tamper-evident:</strong> Modifying any entry breaks the hash chain</li>
+        <li><strong>Complete:</strong> Every action is logged, including denials</li>
+        <li><strong>Compliance-mapped:</strong> Each event links to EU AI Act articles and SOC2 controls</li>
+        <li><strong>Queryable:</strong> Filter by agent, time range, action type, or chain</li>
+      </ul>
+    </div>
+
+  </section>
+
+  <footer class="footer">
+    <div>&copy; 2025 Eigent. Apache 2.0 License.</div>
+    <div class="footer-links">
+      <a href="https://github.com/AgenTrust-AI/eigent" target="_blank">GitHub</a>
+      <a href="quickstart.html">Quick Start</a>
+      <a href="api.html">API Reference</a>
+    </div>
+  </footer>
+</main>
+
+<script>
+function copyCode(btn){const pre=btn.parentElement;const code=pre.textContent.replace('Copy','').trim();navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>{btn.textContent='Copy'},2000)})}
+document.querySelectorAll('.sidebar-nav a').forEach(a=>{a.addEventListener('click',()=>{document.querySelector('.sidebar').classList.remove('open')})});
+</script>
+</body>
+</html>

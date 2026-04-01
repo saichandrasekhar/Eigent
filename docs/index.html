@@ -3,1725 +3,644 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Primary Meta Tags -->
-<title>Eigent - Open-Source AI Agent Security, Observability & Compliance</title>
-<meta name="description" content="Discover, observe, and govern every AI agent in your environment. Eigent provides open-source MCP server security scanning, shadow AI agent detection, and EU AI Act compliance for enterprises.">
-<meta name="keywords" content="AI agent security, MCP server security, shadow AI agents, AI observability, AI compliance, EU AI Act, AI governance, MCP scanning, agent trust, AI agent monitoring, open source AI security, SOC2 AI compliance">
+<title>Eigent — OAuth for AI Agents | Cryptographic Identity &amp; Delegation Chains</title>
+<meta name="description" content="Eigent is OAuth for AI Agents. Cryptographic proof that every agent action traces back to the human who authorized it. Identity binding, delegation chains, permission narrowing.">
+<meta name="keywords" content="AI agent identity, OAuth for agents, delegation chains, agent trust, MCP security, AI governance, agent permissions, cryptographic identity, EU AI Act compliance">
 <meta name="author" content="Eigent">
-<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://eigent.dev/">
-
-<!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://eigent.dev/">
-<meta property="og:title" content="Eigent - Open-Source AI Agent Security & Observability">
-<meta property="og:description" content="Discover, observe, and govern every AI agent in your environment. Open-source MCP server scanning, shadow agent detection, and compliance automation.">
+<meta property="og:title" content="Eigent — OAuth for AI Agents">
+<meta property="og:description" content="Cryptographic proof that every agent action traces back to the human who authorized it.">
 <meta property="og:image" content="https://eigent.dev/og-image.png">
-<meta property="og:site_name" content="Eigent">
-
-<!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://eigent.dev/">
-<meta name="twitter:title" content="Eigent - Open-Source AI Agent Security & Observability">
-<meta name="twitter:description" content="Discover, observe, and govern every AI agent in your environment. Open-source MCP server scanning, shadow agent detection, and compliance automation.">
-<meta name="twitter:image" content="https://eigent.dev/og-image.png">
-<meta name="twitter:site" content="@eigent_ai">
-
-<!-- Structured Data: SoftwareApplication -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "Eigent",
-  "description": "Open-source observability and compliance platform for AI agents. Discover MCP servers, capture agent activity, and prove governance.",
-  "url": "https://eigent.dev",
-  "applicationCategory": "SecurityApplication",
-  "operatingSystem": "Cross-platform",
-  "license": "https://opensource.org/licenses/Apache-2.0",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "softwareVersion": "0.1.0",
-  "downloadUrl": "https://github.com/saichandrasekhar/Eigent",
-  "author": {
-    "@type": "Organization",
-    "name": "Eigent",
-    "url": "https://eigent.dev"
-  }
-}
-</script>
-
-<!-- Structured Data: Organization -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Eigent",
-  "url": "https://eigent.dev",
-  "logo": "https://eigent.dev/logo.png",
-  "description": "Trust infrastructure for autonomous AI agents.",
-  "sameAs": [
-    "https://github.com/saichandrasekhar/Eigent",
-    "https://twitter.com/eigent_ai"
-  ],
-  "contactPoint": {
-    "@type": "ContactPoint",
-    "email": "hello@eigent.ai",
-    "contactType": "customer support"
-  }
-}
-</script>
-
-<!-- Structured Data: FAQPage -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "What is MCP server security?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "MCP (Model Context Protocol) server security refers to the practice of discovering, auditing, and securing MCP servers that AI agents use to access tools, data, and external services. Without proper security, MCP servers can expose sensitive data, allow unauthorized tool execution, or create unmonitored shadow agent infrastructure. Eigent Scan automatically discovers all MCP servers in your environment and flags misconfigurations, missing authentication, and other security risks."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How do I detect shadow AI agents?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Shadow AI agents are autonomous agents running in your environment without IT or security team knowledge. Eigent detects them by scanning MCP configuration files across all known clients (Claude Desktop, Cursor, VS Code, etc.), monitoring running processes for stdio and SSE transports, and identifying unregistered MCP servers. Run 'eigent-scan scan --verbose' to get a complete inventory of every agent and MCP server in your environment."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is Eigent free?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, Eigent is completely free and open source under the Apache 2.0 license. Eigent Scan (discovery) and Eigent Sidecar (observability) are available today at no cost. The upcoming Eigent Platform (governance dashboard) will have both a free community tier and enterprise tiers for organizations that need advanced compliance features."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What is the EU AI Act and how does it affect AI agents?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The EU AI Act is the world's first comprehensive AI regulation, requiring organizations to maintain transparency, accountability, and risk management for AI systems. For autonomous AI agents, this means you need an inventory of all agents, audit trails of their actions, and proof of governance. Eigent helps you meet these requirements by automatically discovering agents, capturing complete audit logs via the Sidecar, and generating compliance reports aligned with EU AI Act, SOC2, and ISO 27001 frameworks."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How does Eigent compare to Astrix Security?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "While Astrix Security focuses on non-human identity management for API keys and service accounts, Eigent is purpose-built for AI agent trust infrastructure. Eigent specifically addresses MCP server discovery, agent-to-tool call tracing, delegation chain capture, and AI-specific compliance requirements. Eigent is also fully open source (Apache 2.0), giving you complete transparency and no vendor lock-in."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can Eigent integrate with my SIEM?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Eigent Sidecar is OpenTelemetry native, meaning it exports traces and metrics in the standard OTLP format. You can route agent activity data to any SIEM or observability platform that supports OpenTelemetry, including Splunk, Datadog, Elastic, Grafana, and others. This lets you correlate AI agent behavior with your existing security monitoring without changing your toolchain."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How do I get started with Eigent Scan?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Getting started takes less than 60 seconds. Install with 'pip install eigent-scan', then run 'eigent-scan scan --verbose' to discover every MCP server in your environment. Eigent Scan checks Claude Desktop, Cursor, VS Code, and running processes automatically. No configuration needed. Use 'eigent-scan report --format html' to generate a shareable security report."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does Eigent work with all AI agent frameworks?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Eigent works with any AI agent that uses the Model Context Protocol (MCP), which is the emerging standard for agent-tool communication. This includes agents built with Claude, GPT, and other LLMs that connect to MCP servers. The Sidecar intercepts MCP traffic at the transport layer (stdio and SSE), so it works regardless of which framework or LLM the agent uses."
-      }
-    }
-  ]
-}
-</script>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-<!-- Analytics: Add your Google Analytics or Plausible script here -->
-<!-- <script defer data-domain="eigent.dev" src="https://plausible.io/js/script.js"></script> -->
-<!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script> -->
-
+<meta name="twitter:title" content="Eigent — OAuth for AI Agents">
+<meta name="twitter:description" content="Cryptographic proof that every agent action traces back to the human who authorized it.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* ============================================================
-   RESET & BASE
-   ============================================================ */
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-:root {
-  --bg: #08090d;
-  --bg-elevated: #0e1017;
-  --bg-card: #111318;
-  --border: #1e2028;
-  --border-subtle: #161820;
-  --text: #e8e9ed;
-  --text-secondary: #8b8d98;
-  --text-tertiary: #5c5e6a;
-  --accent: #7c6aef;
-  --accent-dim: #5b4cc4;
-  --accent-glow: rgba(124, 106, 239, 0.15);
-  --red: #ef4444;
-  --red-dim: rgba(239, 68, 68, 0.12);
-  --amber: #f59e0b;
-  --amber-dim: rgba(245, 158, 11, 0.12);
-  --green: #22c55e;
-  --green-dim: rgba(34, 197, 94, 0.12);
-  --cyan: #06b6d4;
-  --font-sans: 'Outfit', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  --max-width: 1120px;
-}
-
-html {
-  font-size: 16px;
-  scroll-behavior: smooth;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  line-height: 1.6;
-  overflow-x: hidden;
-}
-
-/* ============================================================
-   GRID BACKGROUND
-   ============================================================ */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--border-subtle) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
-  background-size: 64px 64px;
-  pointer-events: none;
-  z-index: 0;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 100%);
-}
-
-/* ============================================================
-   LAYOUT
-   ============================================================ */
-.container {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 0 24px;
-  position: relative;
-  z-index: 1;
-}
-
-section {
-  padding: 100px 0;
-}
-
-/* ============================================================
-   NAV
-   ============================================================ */
-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  padding: 16px 0;
-  background: rgba(8, 9, 13, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-nav .container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.nav-logo {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--text);
-  text-decoration: none;
-  letter-spacing: -0.02em;
-}
-
-.nav-logo span {
-  color: var(--accent);
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  list-style: none;
-}
-
-.nav-links a {
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.nav-links a:hover {
-  color: var(--text);
-}
-
-.nav-links .btn-sm {
-  color: var(--text);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  padding: 7px 16px;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-  transition: all 0.2s;
-}
-
-.nav-links .btn-sm:hover {
-  border-color: var(--accent-dim);
-  background: var(--accent-glow);
-}
-
-/* ============================================================
-   HERO
-   ============================================================ */
-.hero {
-  padding: 180px 0 120px;
-  text-align: center;
-  position: relative;
-}
-
-.hero-glow {
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 400px;
-  background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.hero .container {
-  position: relative;
-  z-index: 1;
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px 6px 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-  margin-bottom: 32px;
-  animation: fadeInUp 0.6s ease both;
-}
-
-.hero-badge .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: pulse-dot 2s ease infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
-}
-
-.hero-wordmark {
-  font-family: var(--font-mono);
-  font-size: clamp(3.5rem, 8vw, 6rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  margin-bottom: 20px;
-  animation: fadeInUp 0.6s 0.1s ease both;
-}
-
-.hero-wordmark .accent {
-  background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 50%, var(--cyan) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.hero h2 {
-  font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 20px;
-  letter-spacing: -0.02em;
-  animation: fadeInUp 0.6s 0.2s ease both;
-}
-
-.hero .subtitle {
-  font-size: clamp(1rem, 2vw, 1.125rem);
-  color: var(--text-secondary);
-  max-width: 640px;
-  margin: 0 auto 40px;
-  line-height: 1.7;
-  animation: fadeInUp 0.6s 0.3s ease both;
-}
-
-.hero-ctas {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  animation: fadeInUp 0.6s 0.4s ease both;
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ============================================================
-   BUTTONS
-   ============================================================ */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  text-decoration: none;
-  transition: all 0.2s;
-  cursor: pointer;
-  border: none;
-}
-
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 0 1px rgba(124, 106, 239, 0.3), 0 1px 2px rgba(0,0,0,0.3);
-}
-
-.btn-primary:hover {
-  background: #8b7af0;
-  box-shadow: 0 0 0 1px rgba(124, 106, 239, 0.5), 0 4px 16px rgba(124, 106, 239, 0.25);
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background: var(--bg-card);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-  border-color: var(--text-tertiary);
-  background: var(--bg-elevated);
-  transform: translateY(-1px);
-}
-
-.btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* ============================================================
-   SECTION HEADERS
-   ============================================================ */
-.section-label {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 12px;
-}
-
-.section-title {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
-  margin-bottom: 16px;
-}
-
-.section-desc {
-  font-size: 1.0625rem;
-  color: var(--text-secondary);
-  max-width: 600px;
-  line-height: 1.7;
-}
-
-.section-desc.centered {
-  margin: 0 auto;
-}
-
-/* ============================================================
-   PROBLEM / STATS
-   ============================================================ */
-.problem {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.problem-header {
-  text-align: center;
-  margin-bottom: 64px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 48px;
-}
-
-.stat {
-  background: var(--bg-card);
-  padding: 36px 28px;
-  text-align: center;
-}
-
-.stat-number {
-  font-family: var(--font-mono);
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin-bottom: 10px;
-}
-
-.stat-number.red { color: var(--red); }
-.stat-number.amber { color: var(--amber); }
-.stat-number.accent { color: var(--accent); }
-
-.stat-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.problem-callout {
-  text-align: center;
-  font-size: clamp(1.125rem, 2.5vw, 1.375rem);
-  color: var(--text-secondary);
-  font-weight: 500;
-  max-width: 680px;
-  margin: 0 auto;
-  line-height: 1.6;
-}
-
-.problem-callout strong {
-  color: var(--text);
-  font-weight: 700;
-}
-
-/* ============================================================
-   FEATURES / CARDS
-   ============================================================ */
-.features {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.features-header {
-  text-align: center;
-  margin-bottom: 64px;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.feature-card {
-  background: var(--bg-card);
-  padding: 36px 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  transition: background 0.25s;
-}
-
-.feature-card:hover {
-  background: var(--bg-elevated);
-}
-
-.feature-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.125rem;
-}
-
-.feature-icon.scan { background: var(--green-dim); color: var(--green); }
-.feature-icon.sidecar { background: var(--accent-glow); color: var(--accent); }
-.feature-icon.platform { background: var(--amber-dim); color: var(--amber); }
-
-.feature-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.feature-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.feature-tag.available {
-  background: var(--green-dim);
-  color: var(--green);
-}
-
-.feature-tag.soon {
-  background: var(--amber-dim);
-  color: var(--amber);
-}
-
-.feature-name {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.feature-desc {
-  color: var(--text-secondary);
-  font-size: 0.9375rem;
-  line-height: 1.65;
-  flex-grow: 1;
-}
-
-.feature-install {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 10px 14px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.feature-install .prompt {
-  color: var(--accent);
-  user-select: none;
-}
-
-.feature-install code {
-  color: var(--text);
-}
-
-/* ============================================================
-   TERMINAL DEMO
-   ============================================================ */
-.demo {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.demo-header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.terminal {
-  background: #0a0b10;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  max-width: 880px;
-  margin: 0 auto;
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,0.3),
-    0 8px 40px rgba(0,0,0,0.5),
-    0 0 80px var(--accent-glow);
-}
-
-.terminal-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 18px;
-  background: #0e0f15;
-  border-bottom: 1px solid var(--border);
-}
-
-.terminal-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.terminal-dot.r { background: #ff5f57; }
-.terminal-dot.y { background: #febc2e; }
-.terminal-dot.g { background: #28c840; }
-
-.terminal-title {
-  flex: 1;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
-
-.terminal-body {
-  padding: 20px 24px;
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  line-height: 1.75;
-  overflow-x: auto;
-}
-
-.terminal-body .prompt-line {
-  color: var(--text-secondary);
-}
-
-.terminal-body .prompt-char {
-  color: var(--accent);
-}
-
-.terminal-body .cmd {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.terminal-body .dim {
-  color: var(--text-tertiary);
-}
-
-.terminal-body .green { color: var(--green); }
-.terminal-body .red { color: var(--red); }
-.terminal-body .amber { color: var(--amber); }
-.terminal-body .cyan { color: var(--cyan); }
-.terminal-body .accent { color: var(--accent); }
-.terminal-body .white { color: var(--text); }
-.terminal-body .bold { font-weight: 700; }
-
-.terminal-body .line {
-  min-height: 1.75em;
-}
-
-.terminal-body .line.blank {
-  min-height: 0.875em;
-}
-
-/* typing cursor animation */
-.cursor {
-  display: inline-block;
-  width: 8px;
-  height: 16px;
-  background: var(--accent);
-  vertical-align: text-bottom;
-  animation: blink 1s step-end infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0; }
-}
-
-/* ============================================================
-   ARCHITECTURE
-   ============================================================ */
-.architecture {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.architecture-header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.arch-diagram {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 48px 32px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.arch-flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  margin-bottom: 40px;
-  flex-wrap: wrap;
-}
-
-.arch-node {
-  padding: 14px 24px;
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.arch-node.agent {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-
-.arch-node.sidecar {
-  background: var(--accent-glow);
-  border: 1px solid var(--accent-dim);
-  color: var(--accent);
-  position: relative;
-}
-
-.arch-node.platform {
-  background: linear-gradient(135deg, var(--accent-glow), rgba(6, 182, 212, 0.1));
-  border: 1px solid var(--accent-dim);
-  color: var(--text);
-}
-
-.arch-arrow {
-  font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  padding: 0 12px;
-  font-size: 1.25rem;
-}
-
-.arch-down-arrow {
-  text-align: center;
-  font-family: var(--font-mono);
-  color: var(--accent-dim);
-  font-size: 1.5rem;
-  margin: 16px 0;
-}
-
-.arch-platform-modules {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  max-width: 560px;
-  margin: 0 auto;
-}
-
-.arch-module {
-  padding: 12px 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-/* ============================================================
-   SOCIAL PROOF
-   ============================================================ */
-.social-proof {
-  border-top: 1px solid var(--border-subtle);
-  padding: 72px 0;
-}
-
-.social-proof-inner {
-  text-align: center;
-}
-
-.social-proof-heading {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 32px;
-}
-
-.proof-stats {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 64px;
-  flex-wrap: wrap;
-}
-
-.proof-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.proof-number {
-  font-family: var(--font-mono);
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.03em;
-}
-
-.proof-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-/* ============================================================
-   EMAIL CAPTURE / NOTIFY
-   ============================================================ */
-.notify {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.notify-inner {
-  text-align: center;
-  max-width: 560px;
-  margin: 0 auto;
-}
-
-.notify-title {
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin-bottom: 12px;
-}
-
-.notify-desc {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin-bottom: 32px;
-  line-height: 1.7;
-}
-
-.notify-form {
-  display: flex;
-  gap: 8px;
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-.notify-form input[type="email"] {
-  flex: 1;
-  padding: 12px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.notify-form input[type="email"]::placeholder {
-  color: var(--text-tertiary);
-}
-
-.notify-form input[type="email"]:focus {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
-
-.notify-form button {
-  padding: 12px 24px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.notify-form button:hover {
-  background: #8b7af0;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(124, 106, 239, 0.25);
-}
-
-.notify-privacy {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  margin-top: 12px;
-}
-
-/* ============================================================
-   FAQ
-   ============================================================ */
-.faq {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.faq-header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.faq-grid {
-  max-width: 800px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.faq-item {
-  background: var(--bg-card);
-}
-
-.faq-question {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px;
-  background: none;
-  border: none;
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.2s;
-  line-height: 1.4;
-}
-
-.faq-question:hover {
-  background: var(--bg-elevated);
-}
-
-.faq-question .faq-icon {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  transition: transform 0.2s;
-}
-
-.faq-item.open .faq-icon {
-  transform: rotate(45deg);
-}
-
-.faq-answer {
-  display: none;
-  padding: 0 24px 20px;
-  font-size: 0.9375rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.faq-item.open .faq-answer {
-  display: block;
-}
-
-/* ============================================================
-   OPEN SOURCE
-   ============================================================ */
-.opensource {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.os-content {
-  text-align: center;
-}
-
-.os-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-bottom: 32px;
-}
-
-.os-badge svg {
-  width: 18px;
-  height: 18px;
-  color: var(--text-secondary);
-}
-
-.os-title {
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  margin-bottom: 16px;
-}
-
-.os-desc {
-  font-size: 1.0625rem;
-  color: var(--text-secondary);
-  max-width: 500px;
-  margin: 0 auto 40px;
-  line-height: 1.7;
-}
-
-.os-ctas {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* ============================================================
-   FOOTER
-   ============================================================ */
-footer {
-  border-top: 1px solid var(--border-subtle);
-  padding: 48px 0;
-}
-
-footer .container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 24px;
-}
-
-.footer-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.footer-logo {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.footer-logo span {
-  color: var(--accent);
-}
-
-.footer-copy {
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
-}
-
-.footer-links {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.footer-links a {
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.875rem;
-  transition: color 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.footer-links a:hover {
-  color: var(--text);
-}
-
-.footer-links svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
-@media (max-width: 768px) {
-  section { padding: 72px 0; }
-  .hero { padding: 140px 0 80px; }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .features-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .arch-flow {
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .arch-arrow {
-    transform: rotate(90deg);
-    padding: 4px 0;
-  }
-
-  .arch-platform-modules {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .nav-links {
-    gap: 16px;
-  }
-
-  .terminal-body {
-    font-size: 0.6875rem;
-    padding: 16px;
-  }
-
-  .proof-stats {
-    gap: 32px;
-  }
-
-  .notify-form {
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 480px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .nav-links .hide-mobile {
-    display: none;
-  }
-
-  .hero-ctas {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .hero-ctas .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  footer .container {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .proof-stats {
-    flex-direction: column;
-    gap: 24px;
-  }
-}
-
-/* ============================================================
-   SCANLINE ANIMATION (subtle decorative touch)
-   ============================================================ */
-.terminal::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity: 0;
-  animation: scanline 4s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes scanline {
-  0%, 100% { opacity: 0; top: 0; }
-  50% { opacity: 0.3; }
-  100% { top: 100%; opacity: 0; }
-}
-
-/* ============================================================
-   SELECTION
-   ============================================================ */
-::selection {
-  background: var(--accent);
-  color: #fff;
+/* ========== RESET & BASE ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06060b;--surface:#0e1018;--surface-2:#151822;--surface-3:#1a1e2e;
+  --accent:#7c6aef;--accent-dim:#5a4cc4;--accent-glow:rgba(124,106,239,.15);
+  --cyan:#06b6d4;--cyan-dim:#0891b2;--cyan-glow:rgba(6,182,212,.12);
+  --green:#10b981;--red:#ef4444;
+  --text:#e8e6f0;--text-dim:#9896a8;--text-muted:#6b697a;
+  --border:#1e2030;--border-accent:rgba(124,106,239,.25);
+  --font-head:'Outfit',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --sidebar-w:260px;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-body);color:var(--text);background:var(--bg);
+  line-height:1.7;font-size:15px;overflow-x:hidden;
+}
+a{color:var(--accent);text-decoration:none;transition:color .2s}
+a:hover{color:#a594ff}
+img,svg{max-width:100%;height:auto}
+
+/* ========== SIDEBAR NAV ========== */
+.sidebar{
+  position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:100;
+  transition:transform .3s ease;
+}
+.sidebar-logo{
+  padding:28px 24px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+}
+.sidebar-logo svg{width:36px;height:36px;flex-shrink:0}
+.sidebar-logo span{font-family:var(--font-head);font-weight:600;font-size:18px;letter-spacing:2px;color:var(--text)}
+.sidebar-nav{flex:1;padding:16px 0;overflow-y:auto}
+.sidebar-nav a{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 24px;color:var(--text-dim);font-size:14px;font-weight:500;
+  border-left:3px solid transparent;transition:all .2s;
+}
+.sidebar-nav a:hover,.sidebar-nav a.active{
+  color:var(--text);background:var(--accent-glow);border-left-color:var(--accent);
+}
+.sidebar-nav a .nav-icon{width:18px;height:18px;opacity:.6;flex-shrink:0}
+.sidebar-nav a:hover .nav-icon,.sidebar-nav a.active .nav-icon{opacity:1}
+.sidebar-cta{padding:16px 24px;border-top:1px solid var(--border)}
+.sidebar-cta a{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;
+  background:linear-gradient(135deg,var(--accent),var(--cyan));color:#fff;
+  transition:opacity .2s;
+}
+.sidebar-cta a:hover{opacity:.9;color:#fff}
+.nav-toggle{
+  display:none;position:fixed;top:16px;left:16px;z-index:200;
+  width:40px;height:40px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;
+  font-size:20px;align-items:center;justify-content:center;
+}
+
+/* ========== MAIN CONTENT ========== */
+.main{margin-left:var(--sidebar-w);min-height:100vh}
+
+/* ========== HERO ========== */
+.hero{
+  position:relative;padding:100px 60px 80px;overflow:hidden;
+  background:radial-gradient(ellipse at 30% 20%,rgba(124,106,239,.08),transparent 60%),
+             radial-gradient(ellipse at 70% 80%,rgba(6,182,212,.06),transparent 60%),
+             var(--bg);
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 16px;border-radius:100px;font-size:12px;font-weight:600;
+  background:var(--accent-glow);border:1px solid var(--border-accent);
+  color:var(--accent);margin-bottom:24px;letter-spacing:1px;text-transform:uppercase;
+}
+.hero h1{
+  font-family:var(--font-head);font-weight:800;font-size:clamp(42px,5vw,68px);
+  line-height:1.1;margin-bottom:20px;
+  background:linear-gradient(135deg,#fff 0%,var(--accent) 50%,var(--cyan) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero-sub{
+  font-size:clamp(17px,2vw,21px);color:var(--text-dim);max-width:640px;
+  line-height:1.6;margin-bottom:40px;
+}
+.hero-actions{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:60px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;
+  font-family:var(--font-body);cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:#fff}
+.btn-primary:hover{color:#fff;box-shadow:0 0 30px var(--accent-glow)}
+.btn-secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--text)}
+
+/* ========== DELEGATION CHAIN ANIMATION ========== */
+.chain-visual{
+  position:relative;padding:40px 0;margin-bottom:20px;
+}
+.chain-row{
+  display:flex;align-items:center;gap:0;justify-content:flex-start;
+  flex-wrap:wrap;
+}
+.chain-node{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:16px 20px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface);min-width:120px;position:relative;
+  animation:nodeAppear .6s ease both;
+}
+.chain-node:nth-child(1){animation-delay:0s}
+.chain-node:nth-child(2){animation-delay:.8s}
+.chain-node:nth-child(3){animation-delay:1.6s}
+.chain-node:nth-child(4){animation-delay:2.4s}
+.chain-node .node-icon{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.chain-node .node-label{font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)}
+.chain-node .node-scope{
+  font-size:10px;padding:3px 8px;border-radius:6px;
+  font-family:var(--font-mono);margin-top:2px;
+}
+.chain-node.human .node-icon{background:rgba(124,106,239,.2);color:var(--accent)}
+.chain-node.agent .node-icon{background:rgba(6,182,212,.2);color:var(--cyan)}
+.chain-node.tool .node-icon{background:rgba(16,185,129,.2);color:var(--green)}
+.chain-node.blocked .node-icon{background:rgba(239,68,68,.2);color:var(--red)}
+.chain-node .node-scope.scope-wide{background:rgba(124,106,239,.15);color:var(--accent)}
+.chain-node .node-scope.scope-mid{background:rgba(6,182,212,.15);color:var(--cyan)}
+.chain-node .node-scope.scope-narrow{background:rgba(16,185,129,.15);color:var(--green)}
+.chain-node .node-scope.scope-denied{background:rgba(239,68,68,.15);color:var(--red)}
+
+.chain-arrow{
+  display:flex;align-items:center;padding:0 8px;
+  color:var(--text-muted);font-size:20px;
+  animation:arrowAppear .4s ease both;
+}
+.chain-arrow:nth-of-type(1){animation-delay:.4s}
+.chain-arrow:nth-of-type(2){animation-delay:1.2s}
+.chain-arrow:nth-of-type(3){animation-delay:2.0s}
+.chain-arrow svg{width:40px;height:20px}
+.chain-arrow .arrow-label{
+  font-size:9px;font-family:var(--font-mono);color:var(--text-muted);
+  position:absolute;margin-top:28px;white-space:nowrap;
+}
+
+@keyframes nodeAppear{
+  from{opacity:0;transform:translateY(10px) scale(.95)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes arrowAppear{
+  from{opacity:0;transform:translateX(-8px)}
+  to{opacity:1;transform:translateX(0)}
+}
+
+/* ========== STATS BAR ========== */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1px;background:var(--border);border-radius:16px;overflow:hidden;
+  margin:60px 0;
+}
+.stat-card{
+  background:var(--surface);padding:28px 24px;text-align:center;
+}
+.stat-number{
+  font-family:var(--font-head);font-weight:700;font-size:36px;
+  background:linear-gradient(135deg,var(--accent),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.stat-label{font-size:13px;color:var(--text-dim);margin-top:4px;line-height:1.4}
+
+/* ========== SECTIONS ========== */
+.section{padding:80px 60px}
+.section-alt{background:var(--surface)}
+.section-label{
+  font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+  color:var(--accent);margin-bottom:12px;font-family:var(--font-mono);
+}
+.section h2{
+  font-family:var(--font-head);font-weight:700;font-size:clamp(28px,3vw,40px);
+  margin-bottom:16px;color:var(--text);
+}
+.section p.lead{font-size:17px;color:var(--text-dim);max-width:640px;margin-bottom:40px}
+
+/* ========== PRODUCT PILLARS ========== */
+.pillars{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:20px;margin-top:40px;
+}
+.pillar{
+  padding:32px 28px;border-radius:16px;border:1px solid var(--border);
+  background:var(--surface);transition:border-color .3s,box-shadow .3s;
+}
+.pillar:hover{border-color:var(--border-accent);box-shadow:0 0 40px var(--accent-glow)}
+.pillar-icon{
+  width:48px;height:48px;border-radius:12px;margin-bottom:16px;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+}
+.pillar:nth-child(1) .pillar-icon{background:rgba(124,106,239,.15);color:var(--accent)}
+.pillar:nth-child(2) .pillar-icon{background:rgba(6,182,212,.15);color:var(--cyan)}
+.pillar:nth-child(3) .pillar-icon{background:rgba(16,185,129,.15);color:var(--green)}
+.pillar:nth-child(4) .pillar-icon{background:rgba(239,68,68,.15);color:var(--red)}
+.pillar h3{font-family:var(--font-head);font-size:18px;font-weight:600;margin-bottom:8px}
+.pillar p{font-size:14px;color:var(--text-dim);line-height:1.6}
+
+/* ========== TERMINAL DEMO ========== */
+.terminal{
+  background:#0a0a12;border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;font-family:var(--font-mono);font-size:13px;
+  max-width:720px;
+}
+.terminal-bar{
+  display:flex;align-items:center;gap:8px;padding:12px 16px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+}
+.terminal-dot{width:10px;height:10px;border-radius:50%}
+.terminal-dot.r{background:#ef4444}.terminal-dot.y{background:#eab308}.terminal-dot.g{background:#22c55e}
+.terminal-title{font-size:11px;color:var(--text-muted);margin-left:8px}
+.terminal-body{padding:20px;line-height:2;overflow-x:auto}
+.terminal-body .prompt{color:var(--cyan)}
+.terminal-body .cmd{color:var(--text)}
+.terminal-body .flag{color:var(--accent)}
+.terminal-body .output{color:var(--text-dim)}
+.terminal-body .success{color:var(--green)}
+.terminal-body .denied{color:var(--red)}
+.terminal-body .comment{color:var(--text-muted);font-style:italic}
+
+/* ========== COMPARISON TABLE ========== */
+.compare-wrap{overflow-x:auto;margin-top:32px;border-radius:12px;border:1px solid var(--border)}
+.compare-table{
+  width:100%;border-collapse:collapse;font-size:14px;
+}
+.compare-table th,.compare-table td{
+  padding:14px 20px;text-align:left;border-bottom:1px solid var(--border);
+}
+.compare-table thead th{
+  background:var(--surface);font-family:var(--font-head);font-weight:600;
+  font-size:13px;color:var(--text-dim);letter-spacing:.5px;
+  position:sticky;top:0;
+}
+.compare-table thead th:first-child{color:var(--text)}
+.compare-table tbody td:first-child{font-weight:600;color:var(--text);font-size:13px}
+.compare-table tbody tr:hover{background:var(--accent-glow)}
+.compare-table .eigent-col{background:rgba(124,106,239,.06)}
+.badge{
+  display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+  border-radius:6px;font-size:11px;font-weight:600;font-family:var(--font-mono);
+}
+.badge-yes{background:rgba(16,185,129,.15);color:var(--green)}
+.badge-no{background:rgba(239,68,68,.12);color:var(--red)}
+.badge-partial{background:rgba(234,179,8,.12);color:#eab308}
+
+/* ========== FOOTER ========== */
+.footer{
+  padding:40px 60px;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:16px;font-size:13px;color:var(--text-muted);
+}
+.footer-links{display:flex;gap:20px}
+.footer-links a{color:var(--text-muted);font-size:13px}
+.footer-links a:hover{color:var(--accent)}
+
+/* ========== CODE BLOCKS ========== */
+pre{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:20px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;
+  line-height:1.8;position:relative;
+}
+code{font-family:var(--font-mono);font-size:13px}
+.inline-code{
+  background:var(--surface-2);padding:2px 8px;border-radius:4px;
+  font-size:12px;color:var(--cyan);
+}
+.copy-btn{
+  position:absolute;top:10px;right:10px;padding:4px 10px;
+  border-radius:6px;border:1px solid var(--border);background:var(--surface-2);
+  color:var(--text-muted);font-size:11px;cursor:pointer;font-family:var(--font-mono);
+  transition:all .2s;
+}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ========== RESPONSIVE ========== */
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .nav-toggle{display:flex}
+  .main{margin-left:0}
+  .hero,.section,.footer{padding-left:24px;padding-right:24px}
+  .hero{padding-top:80px}
+  .chain-row{gap:8px}
+  .chain-node{min-width:90px;padding:12px 14px}
+  .chain-arrow svg{width:24px}
+}
+@media(max-width:600px){
+  .stats-bar{grid-template-columns:1fr 1fr}
+  .chain-row{flex-direction:column;align-items:stretch}
+  .chain-arrow{transform:rotate(90deg);padding:4px 0;justify-content:center}
+}
+
+/* ========== GLOW EFFECTS ========== */
+.glow-line{
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--cyan),transparent);
+  opacity:.3;margin:60px 0;
 }
 </style>
 </head>
-
 <body>
 
-<!-- ========== NAV ========== -->
-<nav>
-  <div class="container">
-    <a href="#" class="nav-logo"><img src="icon.svg" alt="Eigent" width="28" height="28" style="vertical-align:middle;margin-right:8px"><span>eigent</span></a>
-    <ul class="nav-links">
-      <li><a href="#problem" class="hide-mobile">Problem</a></li>
-      <li><a href="#features" class="hide-mobile">Features</a></li>
-      <li><a href="#demo" class="hide-mobile">Demo</a></li>
-      <li><a href="#faq" class="hide-mobile">FAQ</a></li>
-      <li><a href="https://github.com/saichandrasekhar/Eigent" class="btn-sm">
-        <svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        GitHub
-      </a></li>
-    </ul>
+<!-- Mobile nav toggle -->
+<button class="nav-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle navigation">&#9776;</button>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <a href="index.html" class="sidebar-logo">
+    <svg viewBox="0 0 128 128" width="36" height="36"><defs><linearGradient id="sb1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c6aef"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="28" fill="url(#sb1)"/><g transform="translate(64,58)"><rect x="-28" y="-26" width="5" height="52" rx="2.5" fill="#fff"/><rect x="-28" y="-26" width="56" height="5" rx="2.5" fill="#fff"/><rect x="-28" y="-2" width="40" height="5" rx="2.5" fill="#fff" opacity=".8"/><rect x="-28" y="22" width="56" height="5" rx="2.5" fill="#fff"/></g></svg>
+    <span>EIGENT</span>
+  </a>
+  <div class="sidebar-nav">
+    <a href="index.html" class="active">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+      Home
+    </a>
+    <a href="how-it-works.html">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+      How It Works
+    </a>
+    <a href="quickstart.html">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+      Quick Start
+    </a>
+    <a href="concepts.html">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
+      Concepts
+    </a>
+    <a href="compliance.html">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+      Compliance
+    </a>
+    <a href="api.html">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      API Reference
+    </a>
+  </div>
+  <div class="sidebar-cta">
+    <a href="https://github.com/AgenTrust-AI/eigent" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub
+    </a>
   </div>
 </nav>
 
-<!-- ========== HERO ========== -->
-<section class="hero">
-  <div class="hero-glow"></div>
-  <div class="container">
+<!-- Main Content -->
+<main class="main">
+
+  <!-- ====== HERO ====== -->
+  <section class="hero">
     <div class="hero-badge">
-      <span class="dot"></span>
-      Apache 2.0 &middot; Open Source
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+      Identity Infrastructure for AI
     </div>
-    <img src="logo.svg" alt="Eigent" width="220" style="margin-bottom:16px">
-    <div class="hero-wordmark"><span class="accent">eigent</span></div>
-    <h2>Know your agents.</h2>
-    <p class="subtitle">Open-source observability and compliance for AI agents. Discover what's running, capture what they do, prove they're governed.</p>
-    <div class="hero-ctas">
-      <a href="https://github.com/saichandrasekhar/Eigent" class="btn btn-primary">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    <h1>OAuth for AI Agents</h1>
+    <p class="hero-sub">Cryptographic proof that every agent action traces back to the human who authorized it. Delegation chains with permission narrowing at every hop.</p>
+    <div class="hero-actions">
+      <a href="quickstart.html" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
         Get Started
       </a>
-      <a href="#demo" class="btn btn-secondary">See the Demo</a>
-    </div>
-  </div>
-</section>
-
-<!-- ========== TERMINAL DEMO (moved up for prominence) ========== -->
-<section class="demo" id="demo">
-  <div class="container">
-    <div class="demo-header">
-      <p class="section-label">See It In Action</p>
-      <h3 class="section-title">Find what's lurking in your environment.</h3>
-      <p class="section-desc centered">One command. Every agent. Every risk.</p>
+      <a href="https://github.com/AgenTrust-AI/eigent" class="btn btn-secondary" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        View on GitHub
+      </a>
     </div>
 
-    <div class="terminal" style="position:relative;">
+    <!-- Delegation Chain Animation -->
+    <div class="chain-visual">
+      <div class="chain-row">
+        <div class="chain-node human">
+          <div class="node-icon">&#128100;</div>
+          <div class="node-label">Alice</div>
+          <div class="node-scope scope-wide">read, write, test, deploy</div>
+        </div>
+        <div class="chain-arrow">
+          <svg viewBox="0 0 40 20"><path d="M0 10h32M28 5l7 5-7 5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </div>
+        <div class="chain-node agent">
+          <div class="node-icon">&#129302;</div>
+          <div class="node-label">Agent A</div>
+          <div class="node-scope scope-mid">read, write, test</div>
+        </div>
+        <div class="chain-arrow">
+          <svg viewBox="0 0 40 20"><path d="M0 10h32M28 5l7 5-7 5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </div>
+        <div class="chain-node agent">
+          <div class="node-icon">&#129302;</div>
+          <div class="node-label">Agent B</div>
+          <div class="node-scope scope-narrow">test</div>
+        </div>
+        <div class="chain-arrow">
+          <svg viewBox="0 0 40 20"><path d="M0 10h32M28 5l7 5-7 5" fill="none" stroke="var(--red)" stroke-width="1.5"/></svg>
+        </div>
+        <div class="chain-node blocked">
+          <div class="node-icon">&#128683;</div>
+          <div class="node-label">delete_file</div>
+          <div class="node-scope scope-denied">DENIED</div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono)">Permissions narrow at every delegation hop. Agent B can only <span style="color:var(--green)">run_tests</span> &mdash; <span style="color:var(--red)">delete_file</span> is blocked.</p>
+  </section>
+
+  <div class="glow-line"></div>
+
+  <!-- ====== STATS ====== -->
+  <section style="padding:0 60px">
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-number">144:1</div>
+        <div class="stat-label">AI agent to human developer ratio by 2028</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">88%</div>
+        <div class="stat-label">of AI security incidents involve unauthorized agent actions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">0%</div>
+        <div class="stat-label">of enterprises can trace agent actions to the human who authorized them</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">&lt;5 min</div>
+        <div class="stat-label">to add cryptographic identity binding with Eigent</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== PRODUCT PILLARS ====== -->
+  <section class="section">
+    <div class="section-label">Core Capabilities</div>
+    <h2>Four pillars of agent trust</h2>
+    <p class="lead">Every autonomous agent needs a cryptographic identity, bounded permissions, runtime enforcement, and a tamper-proof audit trail.</p>
+
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-icon">&#128272;</div>
+        <h3>Identity Binding</h3>
+        <p>Every agent gets a JWS token cryptographically bound to the human who created it. No anonymous agents. No orphaned sessions. Full chain of custody from human to tool call.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">&#128279;</div>
+        <h3>Delegation Chains</h3>
+        <p>Agents delegate to sub-agents with permission narrowing. Scope can only decrease, never increase. Depth limits prevent unbounded chains. This is how trust actually flows.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">&#128737;</div>
+        <h3>Runtime Enforcement</h3>
+        <p>A sidecar proxy intercepts every MCP tool call. Token validation, scope checking, and 3-way permission intersection happen before any tool executes. Unauthorized calls are blocked.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">&#128209;</div>
+        <h3>Audit Trail</h3>
+        <p>Merkle-chained event log of every delegation, every tool call, every scope change. Map directly to EU AI Act articles and SOC2 controls. Tamper-evident by construction.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== TERMINAL DEMO ====== -->
+  <section class="section section-alt">
+    <div class="section-label">See It In Action</div>
+    <h2>From identity to enforcement in 4 commands</h2>
+    <p class="lead">Issue a token, delegate with narrowed scope, and watch unauthorized actions get blocked in real time.</p>
+
+    <div class="terminal">
       <div class="terminal-bar">
         <div class="terminal-dot r"></div>
         <div class="terminal-dot y"></div>
         <div class="terminal-dot g"></div>
-        <span class="terminal-title">eigent-scan &mdash; zsh</span>
+        <div class="terminal-title">eigent-demo &mdash; zsh</div>
       </div>
       <div class="terminal-body">
-<div class="line prompt-line"><span class="prompt-char">$</span> <span class="cmd">eigent-scan scan --verbose</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="accent bold">eigent-scan</span> <span class="dim">v0.1.0</span></div>
-<div class="line"><span class="dim">Scanning environment for MCP servers...</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Claude Desktop config</span> <span class="dim">~/.config/claude/claude_desktop_config.json</span></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Cursor MCP config</span> <span class="dim">~/.cursor/mcp.json</span></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">VS Code settings</span> <span class="dim">~/.vscode/settings.json</span></div>
-<div class="line"><span class="cyan bold">Scanning:</span> <span class="white">Running processes</span> <span class="dim">checking stdio/sse transports</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="white bold">Found 7 MCP servers across 3 clients</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="dim">  SERVER                              TRANSPORT   CLIENT           STATUS</span></div>
-<div class="line"><span class="dim">  ───────────────────────────────────────────────────────────────────────────</span></div>
-<div class="line">  <span class="white">@modelcontextprotocol/filesystem</span>    <span class="dim">stdio</span>       <span class="dim">Claude Desktop</span>   <span class="green">running</span></div>
-<div class="line">  <span class="white">@modelcontextprotocol/github</span>        <span class="dim">stdio</span>       <span class="dim">Claude Desktop</span>   <span class="green">running</span></div>
-<div class="line">  <span class="white">custom-rag-server</span>                   <span class="dim">sse</span>         <span class="dim">Cursor</span>           <span class="green">running</span></div>
-<div class="line">  <span class="white">@anthropic/code-index</span>               <span class="dim">stdio</span>       <span class="dim">Cursor</span>           <span class="green">running</span></div>
-<div class="line">  <span class="amber">internal-db-proxy</span>                   <span class="dim">sse</span>         <span class="dim">VS Code</span>          <span class="green">running</span></div>
-<div class="line">  <span class="red">unknown-mcp-bridge</span>                  <span class="dim">sse</span>         <span class="dim">unknown</span>          <span class="amber">unknown</span></div>
-<div class="line">  <span class="red">prod-admin-tools</span>                    <span class="dim">stdio</span>       <span class="dim">cron</span>             <span class="green">running</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="red bold">RISK FINDINGS</span></div>
-<div class="line blank"></div>
-<div class="line">  <span class="red bold">CRITICAL</span>  <span class="white">prod-admin-tools</span> has unrestricted filesystem access to <span class="red">/</span></div>
-<div class="line">  <span class="red bold">CRITICAL</span>  <span class="white">unknown-mcp-bridge</span> is not registered in any known client config</div>
-<div class="line">  <span class="amber bold">HIGH</span>      <span class="white">internal-db-proxy</span> exposes <span class="amber">write_query</span> tool without auth</div>
-<div class="line">  <span class="amber bold">HIGH</span>      <span class="white">custom-rag-server</span> SSE endpoint has no TLS <span class="dim">(http://localhost:3001)</span></div>
-<div class="line">  <span class="accent bold">MEDIUM</span>    <span class="white">3 servers</span> have no telemetry configured</div>
-<div class="line blank"></div>
-<div class="line"><span class="dim">  2 critical &middot; 2 high &middot; 1 medium &middot; 2 servers clean</span></div>
-<div class="line blank"></div>
-<div class="line"><span class="white">Run </span><span class="accent">eigent-scan report --format html</span><span class="white"> for full details.</span></div>
-<div class="line prompt-line"><span class="prompt-char">$</span> <span class="cursor"></span></div>
+        <div><span class="comment"># Issue a token for code-reviewer agent with specific scopes</span></div>
+        <div><span class="prompt">$ </span><span class="cmd">eigent issue</span> <span class="flag">code-reviewer --scope read_file,write_file,run_tests</span></div>
+        <div><span class="output">&#9989; Token issued for agent "code-reviewer"</span></div>
+        <div><span class="output">&nbsp;&nbsp; Scopes: read_file, write_file, run_tests</span></div>
+        <div><span class="output">&nbsp;&nbsp; Bound to: alice@company.com (OIDC verified)</span></div>
+        <div><span class="output">&nbsp;&nbsp; Chain depth: 1/5</span></div>
+        <br>
+        <div><span class="comment"># Delegate to sub-agent with narrowed permissions</span></div>
+        <div><span class="prompt">$ </span><span class="cmd">eigent delegate</span> <span class="flag">code-reviewer test-runner --scope run_tests</span></div>
+        <div><span class="output">&#9989; Delegated "test-runner" from "code-reviewer"</span></div>
+        <div><span class="output">&nbsp;&nbsp; Scopes: run_tests (narrowed from 3 &rarr; 1)</span></div>
+        <div><span class="output">&nbsp;&nbsp; Chain: alice &rarr; code-reviewer &rarr; test-runner</span></div>
+        <div><span class="output">&nbsp;&nbsp; Chain depth: 2/5</span></div>
+        <br>
+        <div><span class="comment"># Verify: can test-runner delete files?</span></div>
+        <div><span class="prompt">$ </span><span class="cmd">eigent verify</span> <span class="flag">test-runner delete_file</span></div>
+        <div><span class="denied">&#10060; DENIED &mdash; scope "delete_file" not in agent permissions [run_tests]</span></div>
+        <div><span class="denied">&nbsp;&nbsp; Chain: alice &rarr; code-reviewer &rarr; test-runner</span></div>
+        <div><span class="denied">&nbsp;&nbsp; Required: delete_file | Available: run_tests</span></div>
+        <br>
+        <div><span class="comment"># Verify: can test-runner run tests?</span></div>
+        <div><span class="prompt">$ </span><span class="cmd">eigent verify</span> <span class="flag">test-runner run_tests</span></div>
+        <div><span class="success">&#9989; ALLOWED &mdash; scope "run_tests" verified through delegation chain</span></div>
+        <div><span class="success">&nbsp;&nbsp; Chain: alice &rarr; code-reviewer &rarr; test-runner</span></div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ========== PROBLEM ========== -->
-<section class="problem" id="problem">
-  <div class="container">
-    <div class="problem-header">
-      <p class="section-label">The Problem</p>
-      <h3 class="section-title">Agents are everywhere.<br>Visibility is nowhere.</h3>
+  <!-- ====== COMPARISON ====== -->
+  <section class="section">
+    <div class="section-label">Why Eigent</div>
+    <h2>The only solution built for delegation chains</h2>
+    <p class="lead">Existing IAM tools authenticate users or machines. None of them handle agent-to-agent delegation with permission narrowing.</p>
+
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th class="eigent-col" style="color:var(--accent)">Eigent</th>
+            <th>Okta / Entra ID</th>
+            <th>Aembit</th>
+            <th>Astrix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Human-to-agent identity binding</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-partial">Partial</span></td>
+          </tr>
+          <tr>
+            <td>Agent-to-agent delegation chains</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>Permission narrowing at each hop</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>MCP-native enforcement sidecar</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-partial">Partial</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>Cascade revocation</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-partial">Partial</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>EU AI Act compliance mapping</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-partial">Partial</span></td>
+          </tr>
+          <tr>
+            <td>Merkle-chained audit trail</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+          <tr>
+            <td>Open source</td>
+            <td class="eigent-col"><span class="badge badge-yes">YES</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+            <td><span class="badge badge-no">NO</span></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+  </section>
 
-    <div class="stats-grid">
-      <div class="stat">
-        <div class="stat-number accent">95%</div>
-        <div class="stat-label">of enterprises run agents autonomously</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number red">88%</div>
-        <div class="stat-label">had a confirmed agent security incident</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number amber">82%</div>
-        <div class="stat-label">of execs think they're protected</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number red">21%</div>
-        <div class="stat-label">actually have real visibility</div>
-      </div>
+  <!-- ====== CTA ====== -->
+  <section class="section section-alt" style="text-align:center;padding-top:80px;padding-bottom:80px">
+    <div class="section-label" style="text-align:center">Get Started</div>
+    <h2 style="text-align:center">Add identity infrastructure in 5 minutes</h2>
+    <p class="lead" style="margin:16px auto 32px;text-align:center">Install the CLI, issue your first token, and see delegation chains enforce permissions in real time.</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <a href="quickstart.html" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+        Quick Start Guide
+      </a>
+      <a href="how-it-works.html" class="btn btn-secondary">How It Works</a>
     </div>
+  </section>
 
-    <p class="problem-callout">Your AI agents outnumber your employees <strong>144:1</strong>. Do you know what they're doing?</p>
-  </div>
-</section>
-
-<!-- ========== FEATURES ========== -->
-<section class="features" id="features">
-  <div class="container">
-    <div class="features-header">
-      <p class="section-label">What Eigent Does</p>
-      <h3 class="section-title">Discover. Observe. Govern.</h3>
-      <p class="section-desc centered">Three layers of trust infrastructure for autonomous AI agents.</p>
-    </div>
-
-    <div class="features-grid">
-      <!-- Scan -->
-      <div class="feature-card">
-        <div class="feature-icon scan">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        </div>
-        <div class="feature-name">
-          Eigent Scan
-          <span class="feature-tag available">Available</span>
-        </div>
-        <p class="feature-desc">Discover every MCP server in your environment. Find shadow agents before they find you. Flag misconfigurations and security risks automatically.</p>
-        <div class="feature-install">
-          <span class="prompt">$</span>
-          <code>pip install eigent-scan</code>
-        </div>
-      </div>
-
-      <!-- Sidecar -->
-      <div class="feature-card">
-        <div class="feature-icon sidecar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        </div>
-        <div class="feature-name">
-          Eigent Sidecar
-          <span class="feature-tag available">Available</span>
-        </div>
-        <p class="feature-desc">Capture every tool call, resource access, and delegation chain. Zero-config MCP traffic interception. OpenTelemetry native.</p>
-        <div class="feature-install">
-          <span class="prompt">$</span>
-          <code>eigent-sidecar wrap -- &lt;mcp-server&gt;</code>
-        </div>
-      </div>
-
-      <!-- Platform -->
-      <div class="feature-card">
-        <div class="feature-icon platform">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        </div>
-        <div class="feature-name">
-          Eigent Platform
-          <span class="feature-tag soon">Coming Soon</span>
-        </div>
-        <p class="feature-desc">Identity registry, audit store, compliance reports, and cost attribution. Full lifecycle governance for every agent in your org.</p>
-        <div class="feature-install">
-          <span class="prompt">#</span>
-          <code>EU AI Act &middot; SOC2 &middot; ISO 27001</code>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========== ARCHITECTURE ========== -->
-<section class="architecture" id="architecture">
-  <div class="container">
-    <div class="architecture-header">
-      <p class="section-label">Architecture</p>
-      <h3 class="section-title">Simple by design.</h3>
-      <p class="section-desc centered">Eigent sits between your agents and the world. No code changes. No vendor lock-in.</p>
-    </div>
-
-    <div class="arch-diagram">
-      <div class="arch-flow">
-        <div class="arch-node agent">AI Agent</div>
-        <div class="arch-arrow">&rarr;</div>
-        <div class="arch-node sidecar">Eigent Sidecar</div>
-        <div class="arch-arrow">&rarr;</div>
-        <div class="arch-node agent">MCP Server</div>
-      </div>
-
-      <div class="arch-down-arrow">&darr;</div>
-
-      <div style="text-align:center;margin-bottom:16px;">
-        <span class="arch-node platform" style="display:inline-block;">Eigent Platform</span>
-      </div>
-
-      <div class="arch-platform-modules">
-        <div class="arch-module">Identity</div>
-        <div class="arch-module">Audit</div>
-        <div class="arch-module">Compliance</div>
-        <div class="arch-module">Cost</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========== SOCIAL PROOF ========== -->
-<section class="social-proof" id="social-proof">
-  <div class="container">
-    <div class="social-proof-inner">
-      <p class="social-proof-heading">Trusted by the community</p>
-      <div class="proof-stats">
-        <div class="proof-item">
-          <div class="proof-number">--</div>
-          <div class="proof-label">GitHub Stars</div>
-        </div>
-        <div class="proof-item">
-          <div class="proof-number">--</div>
-          <div class="proof-label">PyPI Downloads</div>
-        </div>
-        <div class="proof-item">
-          <div class="proof-number">--</div>
-          <div class="proof-label">Contributors</div>
-        </div>
-        <div class="proof-item">
-          <div class="proof-number">--</div>
-          <div class="proof-label">MCP Servers Scanned</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========== EMAIL CAPTURE ========== -->
-<section class="notify" id="notify">
-  <div class="container">
-    <div class="notify-inner">
-      <p class="section-label">Stay Updated</p>
-      <h3 class="notify-title">Get notified when Eigent Platform launches</h3>
-      <p class="notify-desc">Be the first to know when the governance dashboard, compliance reports, and enterprise features go live. No spam, ever.</p>
-      <form class="notify-form" action="#" method="POST">
-        <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
-        <button type="submit">Notify Me</button>
-      </form>
-      <p class="notify-privacy">We respect your privacy. Unsubscribe at any time.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ========== FAQ ========== -->
-<section class="faq" id="faq">
-  <div class="container">
-    <div class="faq-header">
-      <p class="section-label">FAQ</p>
-      <h3 class="section-title">Frequently asked questions</h3>
-      <p class="section-desc centered">Everything you need to know about AI agent security and Eigent.</p>
-    </div>
-
-    <div class="faq-grid">
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          What is MCP server security?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          MCP (Model Context Protocol) server security refers to the practice of discovering, auditing, and securing MCP servers that AI agents use to access tools, data, and external services. Without proper security, MCP servers can expose sensitive data, allow unauthorized tool execution, or create unmonitored shadow agent infrastructure. Eigent Scan automatically discovers all MCP servers in your environment and flags misconfigurations, missing authentication, and other security risks.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          How do I detect shadow AI agents?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          Shadow AI agents are autonomous agents running in your environment without IT or security team knowledge. Eigent detects them by scanning MCP configuration files across all known clients (Claude Desktop, Cursor, VS Code, etc.), monitoring running processes for stdio and SSE transports, and identifying unregistered MCP servers. Run <code>eigent-scan scan --verbose</code> to get a complete inventory of every agent and MCP server in your environment.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          Is Eigent free?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          Yes, Eigent is completely free and open source under the Apache 2.0 license. Eigent Scan (discovery) and Eigent Sidecar (observability) are available today at no cost. The upcoming Eigent Platform (governance dashboard) will have both a free community tier and enterprise tiers for organizations that need advanced compliance features.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          What is the EU AI Act and how does it affect AI agents?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          The EU AI Act is the world's first comprehensive AI regulation, requiring organizations to maintain transparency, accountability, and risk management for AI systems. For autonomous AI agents, this means you need an inventory of all agents, audit trails of their actions, and proof of governance. Eigent helps you meet these requirements by automatically discovering agents, capturing complete audit logs via the Sidecar, and generating compliance reports aligned with EU AI Act, SOC2, and ISO 27001 frameworks.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          How does Eigent compare to Astrix Security?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          While Astrix Security focuses on non-human identity management for API keys and service accounts, Eigent is purpose-built for AI agent trust infrastructure. Eigent specifically addresses MCP server discovery, agent-to-tool call tracing, delegation chain capture, and AI-specific compliance requirements. Eigent is also fully open source (Apache 2.0), giving you complete transparency and no vendor lock-in.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          Can Eigent integrate with my SIEM?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          Yes. Eigent Sidecar is OpenTelemetry native, meaning it exports traces and metrics in the standard OTLP format. You can route agent activity data to any SIEM or observability platform that supports OpenTelemetry, including Splunk, Datadog, Elastic, Grafana, and others. This lets you correlate AI agent behavior with your existing security monitoring without changing your toolchain.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          How do I get started with Eigent Scan?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          Getting started takes less than 60 seconds. Install with <code>pip install eigent-scan</code>, then run <code>eigent-scan scan --verbose</code> to discover every MCP server in your environment. Eigent Scan checks Claude Desktop, Cursor, VS Code, and running processes automatically. No configuration needed. Use <code>eigent-scan report --format html</code> to generate a shareable security report.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false">
-          Does Eigent work with all AI agent frameworks?
-          <span class="faq-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></span>
-        </button>
-        <div class="faq-answer">
-          Eigent works with any AI agent that uses the Model Context Protocol (MCP), which is the emerging standard for agent-tool communication. This includes agents built with Claude, GPT, and other LLMs that connect to MCP servers. The Sidecar intercepts MCP traffic at the transport layer (stdio and SSE), so it works regardless of which framework or LLM the agent uses.
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========== OPEN SOURCE ========== -->
-<section class="opensource" id="opensource">
-  <div class="container">
-    <div class="os-content">
-      <div class="os-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Apache 2.0 License
-      </div>
-      <h3 class="os-title">Built in public.</h3>
-      <p class="os-desc">Trust infrastructure should be transparent. Eigent is open source, open governance, and open to contributions.</p>
-      <div class="os-ctas">
-        <a href="https://github.com/saichandrasekhar/Eigent" class="btn btn-primary">
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          Star on GitHub
-        </a>
-        <a href="https://github.com/saichandrasekhar/Eigent/issues" class="btn btn-secondary">Open an Issue</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========== FOOTER ========== -->
-<footer>
-  <div class="container">
-    <div class="footer-left">
-      <a href="#" class="footer-logo"><span>eigent</span></a>
-      <span class="footer-copy">The fundamental trust state of autonomous AI agents.</span>
-    </div>
+  <!-- ====== FOOTER ====== -->
+  <footer class="footer">
+    <div>&copy; 2025 Eigent. Apache 2.0 License.</div>
     <div class="footer-links">
-      <a href="https://github.com/saichandrasekhar/Eigent">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        GitHub
-      </a>
-      <a href="https://twitter.com/eigent_ai">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-        Twitter
-      </a>
-      <a href="mailto:hello@eigent.ai">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        Contact
-      </a>
+      <a href="https://github.com/AgenTrust-AI/eigent" target="_blank">GitHub</a>
+      <a href="api.html">API</a>
+      <a href="compliance.html">Compliance</a>
     </div>
-  </div>
-</footer>
+  </footer>
 
-<!-- FAQ toggle script (minimal, non-render-blocking) -->
+</main>
+
 <script>
-document.querySelectorAll('.faq-question').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var item = this.parentElement;
-    var isOpen = item.classList.contains('open');
-    document.querySelectorAll('.faq-item.open').forEach(function(el) {
-      el.classList.remove('open');
-      el.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
-    });
-    if (!isOpen) {
-      item.classList.add('open');
-      this.setAttribute('aria-expanded', 'true');
-    }
+// Close mobile nav on link click
+document.querySelectorAll('.sidebar-nav a').forEach(a=>{
+  a.addEventListener('click',()=>{
+    document.querySelector('.sidebar').classList.remove('open');
   });
 });
 </script>
-
 </body>
 </html>
