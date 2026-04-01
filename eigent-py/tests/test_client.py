@@ -1,16 +1,22 @@
-"""Tests for the Eigent Python SDK client with mocked HTTP."""
+"""Tests for the Eigent Python SDK sync client with mocked HTTP."""
 
 from __future__ import annotations
 
 import json
 import os
+from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
 
-from eigent.client import EigentClient, EigentError
-from eigent.decorators import EigentPermissionDenied, eigent_protected
+from eigent.client import EigentClient
+from eigent.decorators import eigent_protected
+from eigent.exceptions import (
+    EigentAPIError,
+    EigentPermissionDenied,
+    EigentRegistryUnreachable,
+)
 from eigent.models import (
     Agent,
     AuditEvent,
@@ -26,7 +32,6 @@ BASE = "http://localhost:3456"
 # ---- Helpers ----
 
 # A minimal JWT-shaped string whose payload contains {"agent_id": "parent-1"}
-# (base64url of '{"agent_id":"parent-1"}')
 _FAKE_JWT_PAYLOAD = "eyJhZ2VudF9pZCI6InBhcmVudC0xIn0"
 FAKE_PARENT_TOKEN = f"header.{_FAKE_JWT_PAYLOAD}.signature"
 
@@ -111,7 +116,6 @@ def test_register_agent_with_risk_level() -> None:
     )
 
     assert agent.risk_level == "high"
-    # Verify risk_level was sent in the request body
     sent_body = json.loads(route.calls.last.request.content)
     assert sent_body["risk_level"] == "high"
     client.close()
@@ -320,10 +324,47 @@ def test_api_error_raises() -> None:
     )
 
     client = EigentClient(registry_url=BASE)
-    with pytest.raises(EigentError) as exc_info:
+    with pytest.raises(EigentAPIError) as exc_info:
         client.revoke(agent_id="bad-id")
 
     assert exc_info.value.status_code == 404
+    client.close()
+
+
+# ---- retry logic ----
+
+
+@respx.mock
+def test_retry_on_connect_error() -> None:
+    """Client retries on transient connection failures."""
+    route = respx.post(f"{BASE}/api/verify")
+    route.side_effect = [
+        httpx.ConnectError("Connection refused"),
+        httpx.Response(
+            200,
+            json={"allowed": True, "agent_id": "a1", "reason": "ok"},
+        ),
+    ]
+
+    client = EigentClient(registry_url=BASE, max_retries=2, backoff_base=0.0)
+    result = client.verify(token="tok", tool="read")
+    assert result.allowed is True
+    client.close()
+
+
+@respx.mock
+def test_retry_exhausted_raises_unreachable() -> None:
+    """All retries exhausted raises EigentRegistryUnreachable."""
+    respx.post(f"{BASE}/api/verify").mock(
+        side_effect=httpx.ConnectError("Connection refused")
+    )
+
+    client = EigentClient(registry_url=BASE, max_retries=1, backoff_base=0.0)
+    with pytest.raises(EigentRegistryUnreachable) as exc_info:
+        client.verify(token="tok", tool="read")
+
+    assert "localhost:3456" in str(exc_info.value)
+    assert exc_info.value.fix  # should have a fix suggestion
     client.close()
 
 
@@ -393,7 +434,6 @@ def test_eigent_protected_denied() -> None:
 
 
 def test_eigent_protected_no_token() -> None:
-    # Ensure env var is not set
     os.environ.pop("EIGENT_AGENT_TOKEN", None)
 
     client = EigentClient(registry_url=BASE)
@@ -406,3 +446,19 @@ def test_eigent_protected_no_token() -> None:
         my_tool("SELECT 1")
 
     client.close()
+
+
+# ---- exception attributes ----
+
+
+def test_exception_fix_attribute() -> None:
+    """All custom exceptions expose a fix attribute."""
+    exc = EigentPermissionDenied(tool="run_tests", reason="not in scope")
+    assert exc.fix
+    assert "run_tests" in exc.fix
+
+    exc2 = EigentRegistryUnreachable(url="http://localhost:3456", cause=None)
+    assert "localhost:3456" in exc2.fix
+
+    exc3 = EigentAPIError(500, "internal error")
+    assert exc3.fix

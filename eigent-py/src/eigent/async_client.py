@@ -1,9 +1,15 @@
-"""Eigent Python client for the agent trust registry."""
+"""Async Eigent client for the agent trust registry.
+
+Drop-in async counterpart of :class:`~eigent.client.EigentClient`.  Every
+public method mirrors the sync API but returns a coroutine, making it
+compatible with ``asyncio``-native AI frameworks such as LangChain, CrewAI,
+and FastAPI.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import time
 from typing import Any
 
 import httpx
@@ -26,27 +32,24 @@ from eigent.models import (
 
 logger = logging.getLogger("eigent")
 
-# Keep the old name available for backward compatibility.
-EigentError = EigentAPIError
 
-
-class EigentClient:
-    """Synchronous client for the Eigent identity registry.
+class AsyncEigentClient:
+    """Asynchronous client for the Eigent identity registry.
 
     Features:
+    - Built on ``httpx.AsyncClient`` with connection pooling.
     - Automatic retry with exponential backoff on transient network errors.
     - Configurable timeout and max retries.
-    - Context-manager support for clean resource cleanup.
+    - Async context-manager support for clean resource cleanup.
 
     Usage::
 
-        client = EigentClient(registry_url="http://localhost:3456")
-        session = client.login(email="alice@acme.com", demo_mode=True)
-        agent = client.register_agent(
-            name="code-reviewer",
-            scope=["read_file", "run_tests"],
-            max_delegation_depth=2,
-        )
+        async with AsyncEigentClient(registry_url="http://localhost:3456") as client:
+            session = client.login(email="alice@acme.com", demo_mode=True)
+            agent = await client.register_agent(
+                name="code-reviewer",
+                scope=["read_file", "run_tests"],
+            )
     """
 
     def __init__(
@@ -60,18 +63,18 @@ class EigentClient:
         self.base_url = registry_url.rstrip("/")
         self.max_retries = max_retries
         self.backoff_base = backoff_base
-        self._http = httpx.Client(base_url=self.base_url, timeout=timeout)
+        self._http = httpx.AsyncClient(base_url=self.base_url, timeout=timeout)
         self._session: Session | None = None
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
-        self._http.close()
+        await self._http.aclose()
 
-    def __enter__(self) -> EigentClient:
+    async def __aenter__(self) -> AsyncEigentClient:
         return self
 
-    def __exit__(self, *_: object) -> None:
-        self.close()
+    async def __aexit__(self, *_: object) -> None:
+        await self.close()
 
     # -- helpers --
 
@@ -83,12 +86,12 @@ class EigentClient:
                 body = resp.text
             raise EigentAPIError(resp.status_code, body)
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         """Send an HTTP request with automatic retry on transient errors."""
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                return self._http.request(method, path, **kwargs)
+                return await self._http.request(method, path, **kwargs)
             except (
                 httpx.ConnectError,
                 httpx.ConnectTimeout,
@@ -106,7 +109,7 @@ class EigentClient:
                         delay,
                         exc,
                     )
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
         raise EigentRegistryUnreachable(url=self.base_url, cause=last_exc) from last_exc
 
     @property
@@ -127,8 +130,8 @@ class EigentClient:
     ) -> Session:
         """Authenticate a human operator.
 
-        In *demo_mode* the identity fields are accepted directly (unverified).
-        For production, use the OIDC login flow via ``login_oidc``.
+        This is intentionally synchronous — it only creates local state in
+        demo mode.  Production OIDC login will be async in a future release.
         """
         if demo_mode:
             resolved_sub = sub or email
@@ -146,7 +149,7 @@ class EigentClient:
             "Use demo_mode=True for development."
         )
 
-    def register_agent(
+    async def register_agent(
         self,
         name: str,
         scope: list[str],
@@ -174,7 +177,7 @@ class EigentClient:
         if risk_level:
             payload["risk_level"] = risk_level
 
-        resp = self._request("POST", "/api/agents", json=payload)
+        resp = await self._request("POST", "/api/agents", json=payload)
         self._raise_for_error(resp)
         data = resp.json()
         return Agent(
@@ -187,7 +190,7 @@ class EigentClient:
             risk_level=risk_level,
         )
 
-    def delegate(
+    async def delegate(
         self,
         parent_token: str,
         child_name: str,
@@ -197,11 +200,7 @@ class EigentClient:
         ttl_seconds: int = 3600,
         metadata: dict[str, Any] | None = None,
     ) -> DelegationResult:
-        """Delegate a subset of permissions to a child agent.
-
-        If *parent_agent_id* is not provided it is extracted from the JWT
-        (requires the ``agent_id`` field in the token claims).
-        """
+        """Delegate a subset of permissions to a child agent."""
         if parent_agent_id is None:
             import base64
             import json
@@ -222,27 +221,27 @@ class EigentClient:
         if metadata:
             payload["metadata"] = metadata
 
-        resp = self._request(
+        resp = await self._request(
             "POST", f"/api/agents/{parent_agent_id}/delegate", json=payload
         )
         self._raise_for_error(resp)
         return DelegationResult(**resp.json())
 
-    def verify(self, token: str, tool: str) -> VerifyResult:
+    async def verify(self, token: str, tool: str) -> VerifyResult:
         """Verify whether *token* is authorised to call *tool*."""
-        resp = self._request(
+        resp = await self._request(
             "POST", "/api/verify", json={"token": token, "tool_name": tool}
         )
         data = resp.json()
         return VerifyResult(**data)
 
-    def revoke(self, agent_id: str) -> RevocationResult:
+    async def revoke(self, agent_id: str) -> RevocationResult:
         """Revoke an agent and cascade-revoke all its children."""
-        resp = self._request("DELETE", f"/api/agents/{agent_id}")
+        resp = await self._request("DELETE", f"/api/agents/{agent_id}")
         self._raise_for_error(resp)
         return RevocationResult(**resp.json())
 
-    def audit(
+    async def audit(
         self,
         *,
         human: str | None = None,
@@ -260,18 +259,18 @@ class EigentClient:
         if action:
             params["action"] = action
 
-        resp = self._request("GET", "/api/audit", params=params)
+        resp = await self._request("GET", "/api/audit", params=params)
         self._raise_for_error(resp)
         data = AuditResponse(**resp.json())
         return data.entries
 
-    def audit_verify(self) -> AuditVerifyResult:
+    async def audit_verify(self) -> AuditVerifyResult:
         """Verify the integrity of the immutable audit chain."""
-        resp = self._request("GET", "/api/v1/audit/verify")
+        resp = await self._request("GET", "/api/v1/audit/verify")
         self._raise_for_error(resp)
         return AuditVerifyResult(**resp.json())
 
-    def compliance_report(
+    async def compliance_report(
         self,
         framework: str = "all",
         period: str = "30d",
@@ -287,6 +286,6 @@ class EigentClient:
         if human:
             params["human"] = human
 
-        resp = self._request("GET", "/api/compliance/report", params=params)
+        resp = await self._request("GET", "/api/compliance/report", params=params)
         self._raise_for_error(resp)
         return ComplianceReport(**resp.json())

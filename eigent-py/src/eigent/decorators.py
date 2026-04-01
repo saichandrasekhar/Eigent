@@ -6,7 +6,8 @@ import functools
 import os
 from typing import Any, Callable, TypeVar
 
-from eigent.client import EigentClient, EigentError
+from eigent.client import EigentClient
+from eigent.exceptions import EigentPermissionDenied
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -20,15 +21,6 @@ def _get_default_client() -> EigentClient:
         url = os.environ.get("EIGENT_REGISTRY_URL", "http://localhost:3456")
         _default_client = EigentClient(registry_url=url)
     return _default_client
-
-
-class EigentPermissionDenied(Exception):
-    """Raised when the Eigent registry denies a tool call."""
-
-    def __init__(self, tool: str, reason: str) -> None:
-        self.tool = tool
-        self.reason = reason
-        super().__init__(f"Permission denied for tool '{tool}': {reason}")
 
 
 def eigent_protected(
@@ -51,7 +43,6 @@ def eigent_protected(
 
     Raises:
         EigentPermissionDenied: If the token is missing or not authorised.
-        EigentError: On unexpected registry errors.
     """
 
     def decorator(fn: F) -> F:
@@ -62,6 +53,7 @@ def eigent_protected(
                 raise EigentPermissionDenied(
                     fn.__name__,
                     f"No agent token found. Set the {token_env} environment variable.",
+                    fix=f"Set the {token_env} environment variable to a valid Eigent agent JWT.",
                 )
 
             eigent = client or _get_default_client()
