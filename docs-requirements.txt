@@ -1,3 +1,2 @@
 mkdocs-material>=9.5
 pymdown-extensions>=10.0
-mkdocs-social>=0.7
